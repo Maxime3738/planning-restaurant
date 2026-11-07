@@ -860,14 +860,16 @@ const MAX_UNDO = 60;              // nombre d'actions annulables
 const MS_PER_DAY = 86400000;
 
 const ROLES = [
-  { id: 'cuisine', label: 'Cuisine' },
   { id: 'salle', label: 'Salle' },
-  { id: 'bar', label: 'Bar' },
-  { id: 'plonge', label: 'Plonge' },
+  { id: 'cuisine', label: 'Cuisine' },
   { id: 'manager', label: 'Manager' },
-  { id: 'autre', label: 'Autre' },
 ];
 const ROLE_IDS = ROLES.map(r => r.id);
+/** Postes des anciennes versions -> postes actuels (plonge = cuisine, bar et autre = salle) */
+function migrateRole(role) {
+  if (ROLE_IDS.includes(role)) return role;
+  return role === 'plonge' ? 'cuisine' : 'salle';
+}
 
 const STATUSES = [
   { id: 'travail', label: 'Travail' },
@@ -927,7 +929,7 @@ function clone(obj) { return obj == null ? null : JSON.parse(JSON.stringify(obj)
 function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
 function fmtNumber(n) { return Number(n).toLocaleString('fr-FR', { maximumFractionDigits: 2 }); }
 function plural(n, singular, pluralForm) { return `${n} ${n > 1 ? (pluralForm || singular + 's') : singular}`; }
-function roleLabel(id) { return (ROLES.find(r => r.id === id) || ROLES[ROLES.length - 1]).label; }
+function roleLabel(id) { return (ROLES.find(r => r.id === id) || ROLES[0]).label; }
 function statusLabel(id) { return (STATUSES.find(s => s.id === id) || STATUSES[0]).label; }
 
 /** "#2563eb" -> "37, 99, 235" (pour les fonds transparents des créneaux) */
@@ -1125,7 +1127,7 @@ function normalizeState(raw) {
     s.employees.push({
       id,
       name: String(e.name == null ? '' : e.name).trim().slice(0, 40) || 'Sans nom',
-      role: ROLE_IDS.includes(e.role) ? e.role : 'autre',
+      role: migrateRole(e.role),
       contract: Number.isFinite(contract) && contract >= 0 && contract <= 80 ? Math.round(contract * 100) / 100 : 0,
       color: /^#[0-9a-f]{6}$/i.test(e.color) ? e.color.toLowerCase() : PALETTE[i % PALETTE.length],
     });
@@ -1176,9 +1178,9 @@ function buildSampleState() {
   };
   const camille = add('Camille', 'manager', 39, '#7c3aed');
   const lucas = add('Lucas', 'cuisine', 35, '#ea580c');
-  const sarah = add('Sarah', 'plonge', 35, '#0891b2');
+  const sarah = add('Sarah', 'cuisine', 35, '#0891b2');
   const ines = add('Inès', 'salle', 24, '#db2777');
-  const hugo = add('Hugo', 'bar', 20, '#16a34a');
+  const hugo = add('Hugo', 'salle', 20, '#16a34a');
 
   const monday = startOfWeek(today());
   // put(salarié, jour 0=lundi…6=dimanche, statut ou liste de créneaux)
@@ -1201,7 +1203,7 @@ function buildSampleState() {
   put(lucas, 0, 'repos');
   for (let d = 1; d <= 5; d++) put(lucas, d, coupure('10:30', '14:30', '18:30', '21:30'));
   put(lucas, 6, 'conge');
-  // Sarah, plonge 35 h : 4 × 8 h + 3 h = 35 h (vert)
+  // Sarah, cuisine 35 h : 4 × 8 h + 3 h = 35 h (vert)
   put(sarah, 0, 'repos');
   for (let d = 1; d <= 4; d++) put(sarah, d, coupure('11:00', '15:00', '19:00', '23:00'));
   put(sarah, 5, [['11:00', '14:00']]);
@@ -1214,7 +1216,7 @@ function buildSampleState() {
   put(ines, 4, [['18:30', '23:00']]);
   put(ines, 5, coupure('11:30', '15:00', '18:30', '23:00'));
   put(ines, 6, [['11:30', '15:30']]);
-  // Hugo, bar 20 h : soirées après minuit, 23 h au total (rouge)
+  // Hugo, salle 20 h : soirées après minuit, 23 h au total (rouge)
   put(hugo, 0, 'repos');
   put(hugo, 3, [['18:00', '01:00']]);
   put(hugo, 4, [['18:00', '02:00']]);
@@ -1937,7 +1939,7 @@ function submitEmployeeForm() {
   }
   const data = {
     name: name.slice(0, 40),
-    role: ROLE_IDS.includes($('#empf-role').value) ? $('#empf-role').value : 'autre',
+    role: migrateRole($('#empf-role').value),
     contract: Math.round(contract * 100) / 100,
     color: /^#[0-9a-f]{6}$/i.test($('#empf-color').value) ? $('#empf-color').value.toLowerCase() : PALETTE[0],
   };
