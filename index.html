@@ -1,0 +1,2384 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="Planning des salariés du restaurant : créneaux, heures par semaine et par mois.">
+<title>Planning du restaurant</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='2' y='4' width='28' height='26' rx='6' fill='%232453d8'/%3E%3Crect x='2' y='4' width='28' height='8' rx='4' fill='%231a3aa0'/%3E%3Crect x='8' y='16' width='6' height='5' rx='1.5' fill='%23fff'/%3E%3Crect x='18' y='16' width='6' height='5' rx='1.5' fill='%23fff'/%3E%3Crect x='8' y='23' width='6' height='4' rx='1.5' fill='%23fff' opacity='.6'/%3E%3C/svg%3E">
+<script>
+  /* Applique le thème mémorisé AVANT l'affichage (évite un flash blanc en mode sombre). */
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('planningResto.theme'); } catch (e) {}
+    if (t !== 'dark' && t !== 'light') {
+      t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    }
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+<style>
+/* =====================================================================
+   STYLES
+   1. Couleurs (thème clair / sombre)
+   2. Base et boutons
+   3. En-tête, barre d'actions, bandeaux
+   4. Tableau de la semaine et du mois
+   5. Fenêtres (édition, salariés, confirmation) et notifications
+   6. Téléphone (écrans étroits)
+   7. Impression
+   ===================================================================== */
+
+/* ---------- 1. Couleurs : thème clair ---------- */
+:root {
+  color-scheme: light;
+  --bg: #f3f4f7;
+  --surface: #ffffff;
+  --surface-2: #f6f7fa;
+  --surface-3: #e9ecf1;
+  --border: #e1e5eb;
+  --border-strong: #c9d0d9;
+  --text: #1b2130;
+  --muted: #5f6b7e;
+  --primary: #2453d8;
+  --primary-hover: #1c43b4;
+  --primary-soft: #e7edfc;
+  --on-primary: #ffffff;
+  --danger: #c62828;
+  --danger-hover: #a71f1f;
+  --danger-soft: #fdecec;
+  --on-danger: #ffffff;
+  --ok: #17733a;     --ok-bg: #dff4e5;
+  --under: #965000;  --under-bg: #ffefd2;
+  --over: #b91f26;   --over-bg: #fde2e2;
+  --today: #f0f5ff;
+  --ds-repos: #4b5563;   --ds-repos-bg: #eceff3;
+  --ds-conge: #075985;   --ds-conge-bg: #dff1fc;
+  --ds-absent: #8a3c0b;  --ds-absent-bg: #fdefd2;
+  --ds-maladie: #6b21a8; --ds-maladie-bg: #f1e6fd;
+  --shift-alpha: .15;
+  --shadow: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.07);
+  --shadow-lg: 0 24px 60px rgba(16,24,40,.28);
+  --radius: 14px;
+  --tap: 44px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* ---------- 1. Couleurs : thème sombre ---------- */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1117;
+  --surface: #161a22;
+  --surface-2: #1b2029;
+  --surface-3: #262c37;
+  --border: #2a313d;
+  --border-strong: #3c4555;
+  --text: #e7eaf0;
+  --muted: #9ba5b6;
+  --primary: #7096ff;
+  --primary-hover: #8eabff;
+  --primary-soft: #1c2949;
+  --on-primary: #0a1020;
+  --danger: #ff7a7a;
+  --danger-hover: #ff9393;
+  --danger-soft: #3a1b1e;
+  --on-danger: #1d0b0b;
+  --ok: #5ad67f;     --ok-bg: #12301d;
+  --under: #f6b545;  --under-bg: #382810;
+  --over: #ff8080;   --over-bg: #42181b;
+  --today: #182036;
+  --ds-repos: #bcc4d0;   --ds-repos-bg: #262c37;
+  --ds-conge: #8fd3ff;   --ds-conge-bg: #0f2c40;
+  --ds-absent: #f8c977;  --ds-absent-bg: #382a10;
+  --ds-maladie: #d9b8ff; --ds-maladie-bg: #2d1d45;
+  --shift-alpha: .32;
+  --shadow: 0 1px 2px rgba(0,0,0,.5);
+  --shadow-lg: 0 24px 60px rgba(0,0,0,.65);
+}
+@media (pointer: coarse) { :root { --tap: 48px; } }
+
+/* ---------- 2. Base ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+.app { max-width: 1440px; margin: 0 auto; padding: 14px 20px 48px; }
+h1, h2, h3 { margin: 0; line-height: 1.2; }
+.muted { color: var(--muted); }
+.small { font-size: .85rem; }
+.spacer { flex: 1 1 auto; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+.ico {
+  width: 1.15em; height: 1.15em; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.print-only { display: none; }
+.lbl-short { display: none; }   /* libellé court : affiché seulement sur téléphone */
+.nowrap { white-space: nowrap; }
+
+/* Boutons */
+.btn {
+  -webkit-appearance: none; appearance: none;
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  min-height: var(--tap); padding: 0 14px;
+  border: 1px solid var(--border-strong); border-radius: 11px;
+  background: var(--surface); color: var(--text);
+  font: inherit; font-weight: 600; line-height: 1.1;
+  cursor: pointer; white-space: nowrap; touch-action: manipulation;
+  transition: background-color .15s, border-color .15s, color .15s;
+}
+.btn:hover { background: var(--surface-3); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: default; transform: none; }
+.btn:disabled:hover { background: var(--surface); }
+.btn.primary { background: var(--primary); border-color: var(--primary); color: var(--on-primary); }
+.btn.primary:hover { background: var(--primary-hover); border-color: var(--primary-hover); }
+.btn.ghost { background: transparent; border-color: transparent; }
+.btn.ghost:hover { background: var(--surface-3); }
+.btn.danger { color: var(--danger); }
+.btn.danger-fill { background: var(--danger); border-color: var(--danger); color: var(--on-danger); }
+.btn.danger-fill:hover { background: var(--danger-hover); border-color: var(--danger-hover); }
+.btn.icon-btn { width: var(--tap); padding: 0; }
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+
+/* Champs de saisie */
+input:not([type="checkbox"]):not([type="color"]), select {
+  font: inherit; color: var(--text); background: var(--surface);
+  border: 1px solid var(--border-strong); border-radius: 11px;
+  min-height: var(--tap); padding: 0 12px;
+}
+input:not([type="checkbox"]):not([type="color"]):focus, select:focus {
+  border-color: var(--primary); outline: 2px solid var(--primary-soft); outline-offset: 0;
+}
+input[type="checkbox"] { accent-color: var(--primary); }
+
+/* ---------- 3. En-tête ---------- */
+.app-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.brand { display: flex; align-items: center; gap: 12px; margin-right: auto; min-width: 0; }
+.logo {
+  width: 44px; height: 44px; border-radius: 13px; flex: none;
+  display: grid; place-items: center;
+  background: var(--primary); color: var(--on-primary);
+}
+.logo .ico { width: 24px; height: 24px; }
+.brand h1 { font-size: 1.3rem; font-weight: 800; letter-spacing: -.01em; }
+.save-status { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-size: .82rem; color: var(--muted); }
+.save-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--ok); flex: none; }
+.save-status.err { color: var(--danger); font-weight: 700; }
+.save-status.err::before { background: var(--danger); }
+
+/* Barre d'actions principale */
+.actions {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 10px; margin-bottom: 4px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.seg { display: inline-flex; gap: 4px; padding: 4px; background: var(--surface-3); border-radius: 12px; }
+.seg button {
+  min-height: calc(var(--tap) - 8px); padding: 0 18px;
+  border: 0; border-radius: 9px; background: transparent;
+  color: var(--muted); font: inherit; font-weight: 700; cursor: pointer;
+}
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+
+/* Bandeaux (erreur de sauvegarde, rappel d'export) */
+.banner {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  padding: 10px 14px; margin: 0 0 12px; border-radius: 12px; font-size: .92rem;
+}
+.banner > .ico { width: 20px; height: 20px; }
+.banner-msg { flex: 1 1 260px; }
+.banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.banner-error { background: var(--danger-soft); color: var(--danger); border: 2px solid var(--danger); font-weight: 650; }
+.banner-reminder { background: var(--surface); color: var(--muted); border: 1px dashed var(--border-strong); }
+.banner-reminder .btn { min-height: 36px; }
+
+/* Barre d'outils de chaque vue */
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 16px 0 12px; }
+.toolbar .nav, .toolbar .tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.toolbar .tools { margin-left: auto; }
+.period { font-size: 1.15rem; font-weight: 800; }
+.period small { display: block; margin-top: 2px; font-size: .88rem; font-weight: 500; color: var(--muted); }
+#year-input { width: 96px; }
+
+/* ---------- 4. Tableaux ---------- */
+.table-wrap {
+  position: relative; overflow-x: auto; -webkit-overflow-scrolling: touch;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.grid { width: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+.week-grid { min-width: 980px; }
+.month-grid { min-width: 860px; }
+.grid th, .grid td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.grid tr > :last-child { border-right: 0; }
+.grid > :last-child > tr:last-child > * { border-bottom: 0; }
+.grid thead th { padding: 0; background: var(--surface-2); font-size: .82rem; font-weight: 700; color: var(--muted); }
+.grid thead th.plain { padding: 8px 10px; }
+.th-sub { display: block; font-size: .74rem; font-weight: 500; color: var(--muted); }
+
+/* Colonne des noms (reste visible quand on fait défiler sur téléphone) */
+.col-name {
+  position: sticky; left: 0; z-index: 2;
+  width: 180px; min-width: 180px; max-width: 180px;
+  background: var(--surface); text-align: left;
+}
+.grid thead .col-name, .grid tfoot .col-name { background: var(--surface-2); z-index: 3; }
+.grid thead th.col-name { padding: 8px 14px; }
+.grid tbody th.col-name { padding: 0; height: 1px; box-shadow: inset 5px 0 0 var(--c); }
+.emp-btn {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; height: 100%; min-height: 72px; padding: 8px 12px 8px 16px;
+  border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.emp-btn:hover { background: var(--surface-3); }
+.emp-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--c); flex: none; }
+.emp-text { display: flex; flex-direction: column; min-width: 0; }
+.emp-name { font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.emp-meta { font-size: .78rem; font-weight: 500; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* En-têtes des jours */
+.day-head {
+  position: relative; display: flex; flex-direction: column; align-items: center; gap: 1px;
+  width: 100%; min-height: 54px; padding: 8px 4px;
+  border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer;
+}
+.day-head:hover { background: var(--surface-3); }
+.dh-name { font-size: .92rem; font-weight: 800; color: var(--text); }
+.dh-date { font-size: .78rem; }
+.dh-icon { position: absolute; top: 6px; right: 6px; opacity: .45; }
+.dh-icon .ico { width: 13px; height: 13px; }
+.grid thead th.is-today { box-shadow: inset 0 -3px 0 var(--primary); }
+th.is-today .dh-name, th.is-today .dh-date { color: var(--primary); }
+
+/* Cases du planning */
+.grid td.cell { padding: 0; height: 1px; vertical-align: top; min-width: 106px; }
+.cell.is-today { background: var(--today); }
+.cell-btn {
+  display: flex; flex-direction: column; gap: 4px;
+  width: 100%; height: 100%; min-height: 72px; padding: 7px;
+  border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.cell-btn:hover { background: var(--surface-3); }
+.shift {
+  display: block; padding: 3px 7px; white-space: nowrap;
+  border-left: 3px solid var(--c); border-radius: 6px;
+  background: rgba(var(--c-rgb), var(--shift-alpha));
+  font-size: .82rem; font-weight: 650;
+}
+.shift sup { margin-left: 2px; font-size: .66rem; font-weight: 800; color: var(--muted); }
+.cell-sum { margin-top: auto; text-align: right; font-size: .74rem; font-weight: 650; color: var(--muted); }
+.cell-empty { margin: auto; font-size: 1.5rem; line-height: 1; color: var(--border-strong); opacity: 0; transition: opacity .15s; }
+.cell-btn:hover .cell-empty, .cell-btn:focus-visible .cell-empty { opacity: 1; }
+@media (hover: none) { .cell-empty { opacity: .7; } }
+
+/* Statuts d'une journée (Repos, Congé, Absent, Maladie) */
+.badge { display: inline-flex; align-items: center; justify-content: center; padding: 3px 9px; border-radius: 999px; font-size: .8rem; font-weight: 750; }
+.cell-btn .badge { margin: auto 0; padding: 9px 6px; border-radius: 8px; }
+.ds-repos   { background: var(--ds-repos-bg);   color: var(--ds-repos); }
+.ds-conge   { background: var(--ds-conge-bg);   color: var(--ds-conge); }
+.ds-absent  { background: var(--ds-absent-bg);  color: var(--ds-absent); }
+.ds-maladie { background: var(--ds-maladie-bg); color: var(--ds-maladie); }
+
+/* Colonne Total et comparaison avec le contrat */
+.col-total { width: 118px; min-width: 118px; text-align: center; }
+td.col-total { padding: 8px; }
+.tot { display: block; font-size: 1.15rem; font-weight: 800; }
+.tot-sub { display: block; margin-top: 2px; font-size: .74rem; font-weight: 650; }
+.cmp-ok    { background: var(--ok-bg);    color: var(--ok); }
+.cmp-under { background: var(--under-bg); color: var(--under); }
+.cmp-over  { background: var(--over-bg);  color: var(--over); }
+.cmp-none  { color: var(--muted); }
+
+/* Lignes du bas (présents, heures par jour) */
+.grid tfoot th, .grid tfoot td {
+  padding: 9px 6px; background: var(--surface-2);
+  text-align: center; font-size: .9rem; font-weight: 750;
+}
+.grid tfoot th.col-name { padding-left: 16px; text-align: left; }
+.grid tfoot tr:first-child > * { border-top: 2px solid var(--border-strong); }
+.grid tfoot td.is-today { background: var(--today); }
+.unit { font-size: .78rem; font-weight: 500; color: var(--muted); }
+.empty-row { padding: 34px 16px !important; text-align: center; color: var(--muted); }
+.empty-row .btn { margin: 10px 0 0 8px; }
+
+/* Tableau du mois */
+.week-link {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 100%; min-height: 54px; padding: 8px 6px;
+  border: 0; background: transparent; color: var(--text); font: inherit; font-weight: 800; cursor: pointer;
+}
+.week-link:hover { background: var(--surface-3); color: var(--primary); }
+.month-grid td { padding: 8px 6px; text-align: center; }
+.month-grid td.wk { font-weight: 750; min-width: 76px; }
+.month-grid td.partial { color: var(--muted); font-style: italic; font-weight: 600; }
+.mini { display: inline-block; margin: 2px 1px 0; padding: 1px 7px; border-radius: 999px; font-size: .72rem; font-weight: 700; white-space: nowrap; }
+.days-cell { font-size: .86rem; min-width: 108px; }
+
+/* Légende et notes */
+.legend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; margin-top: 12px; font-size: .85rem; color: var(--muted); }
+.legend .lg { display: inline-flex; align-items: center; gap: 6px; }
+.legend .sw { display: inline-block; width: 16px; height: 16px; border-radius: 5px; border: 2px solid currentColor; }
+.note { margin: 10px 2px 0; font-size: .85rem; color: var(--muted); }
+
+/* Pied de page */
+.app-footer {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 32px; padding-top: 16px; border-top: 1px solid var(--border);
+  font-size: .86rem; color: var(--muted);
+}
+.app-footer p { margin: 0; max-width: 720px; }
+.footer-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- 5. Fenêtres ---------- */
+/* Fenêtre ancrée en haut (et non centrée) : elle ne « saute » pas quand son contenu change */
+dialog.dlg {
+  width: min(580px, calc(100vw - 24px)); max-width: none;
+  margin: 5vh auto auto;
+  max-height: 90vh; max-height: 90dvh;
+  padding: 0; border: 0; border-radius: 18px; overflow: hidden;
+  background: var(--surface); color: var(--text); box-shadow: var(--shadow-lg);
+}
+dialog.dlg:focus-visible { outline: none; }
+dialog.dlg-sm { width: min(450px, calc(100vw - 24px)); }
+dialog.dlg::backdrop { background: rgba(8, 12, 20, .55); }
+.dlg-inner { display: flex; flex-direction: column; max-height: 90vh; max-height: 90dvh; }
+.dlg-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 18px 18px 10px; }
+.dlg-title { display: flex; align-items: center; gap: 10px; font-size: 1.2rem; font-weight: 800; }
+.dlg-title .emp-dot { width: 14px; height: 14px; }
+.dlg-sub { margin: 4px 0 0; font-size: .9rem; color: var(--muted); }
+.dlg-body { padding: 6px 18px 16px; overflow-y: auto; overscroll-behavior: contain; }
+.dlg-body > p:first-child { margin-top: 0; }
+.dlg-foot {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: 12px 18px; border-top: 1px solid var(--border); background: var(--surface-2);
+}
+.dlg-hint { margin: 0; padding: 0 18px 12px; background: var(--surface-2); text-align: right; font-size: .78rem; color: var(--muted); }
+
+/* Édition d'une case : type de journée */
+.status-seg {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px;
+  padding: 4px; margin-bottom: 14px; background: var(--surface-3); border-radius: 12px;
+}
+.status-seg button {
+  min-height: calc(var(--tap) - 4px); padding: 0 2px;
+  border: 0; border-radius: 9px; background: transparent;
+  color: var(--muted); font: inherit; font-size: .88rem; font-weight: 700; cursor: pointer;
+}
+.status-seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+.status-seg button[data-status="repos"][aria-pressed="true"]   { background: var(--ds-repos-bg);   color: var(--ds-repos); }
+.status-seg button[data-status="conge"][aria-pressed="true"]   { background: var(--ds-conge-bg);   color: var(--ds-conge); }
+.status-seg button[data-status="absent"][aria-pressed="true"]  { background: var(--ds-absent-bg);  color: var(--ds-absent); }
+.status-seg button[data-status="maladie"][aria-pressed="true"] { background: var(--ds-maladie-bg); color: var(--ds-maladie); }
+
+/* Édition d'une case : créneaux */
+.shift-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 70px auto;
+  align-items: end; gap: 8px; padding: 6px 0;
+}
+.sr-field { display: flex; flex-direction: column; gap: 3px; font-size: .74rem; font-weight: 650; color: var(--muted); }
+.sr-field input { width: 100%; min-width: 0; font-size: 1rem !important; font-variant-numeric: tabular-nums; }
+.sr-arrow, .sr-dur { padding-bottom: 12px; }
+.sr-arrow { color: var(--muted); }
+.sr-dur { text-align: right; white-space: nowrap; font-size: .9rem; font-weight: 750; }
+.next-day { display: inline-block; margin-left: 2px; padding: 1px 5px; border-radius: 6px; background: var(--primary-soft); color: var(--primary); font-size: .7rem; }
+.shift-row.invalid input { border-color: var(--danger) !important; }
+.add-shift { width: 100%; margin-top: 8px; border-style: dashed; }
+.chips-wrap { margin-top: 12px; }
+.chips-lbl { font-size: .8rem; font-weight: 650; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip {
+  min-height: 36px; padding: 0 12px;
+  border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface-2);
+  color: var(--text); font: inherit; font-size: .85rem; font-weight: 650; font-variant-numeric: tabular-nums; cursor: pointer;
+}
+.chip:hover { border-color: var(--primary); color: var(--primary); }
+.warn { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--under-bg); color: var(--under); font-size: .86rem; font-weight: 650; }
+.off-msg { margin: 0; padding: 16px; border-radius: 10px; text-align: center; font-weight: 650; }
+.cell-total-line {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--surface-2); font-weight: 650;
+}
+.cell-total-line strong { font-size: 1.2rem; }
+
+/* Copie vers d'autres jours */
+.copy-box { margin-top: 14px; padding: 0 12px; border: 1px solid var(--border); border-radius: 12px; }
+.copy-box[open] { padding-bottom: 12px; }
+.copy-box summary { display: flex; align-items: center; gap: 8px; min-height: var(--tap); font-weight: 700; cursor: pointer; list-style: none; }
+.copy-box summary::-webkit-details-marker { display: none; }
+.copy-box summary::before { content: "▸"; transition: transform .15s; }
+.copy-box[open] summary::before { transform: rotate(90deg); }
+.copy-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 10px; }
+.copy-msg { font-size: .86rem; font-weight: 650; color: var(--ok); }
+.copy-msg.err { color: var(--danger); }
+.dc-week + .dc-week { margin-top: 10px; }
+.dc-label { margin-bottom: 6px; font-size: .8rem; font-weight: 700; color: var(--muted); }
+.day-checks { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.day-check {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 7px 2px; border: 1px solid var(--border-strong); border-radius: 10px;
+  font-size: .78rem; font-weight: 700; cursor: pointer; user-select: none; -webkit-user-select: none;
+}
+.day-check input { width: 18px; height: 18px; margin: 0 0 2px; }
+.day-check:has(input:checked) { background: var(--primary-soft); border-color: var(--primary); color: var(--primary); }
+.day-check.is-source { opacity: .4; border-style: dashed; cursor: not-allowed; }
+.day-check .dnum { font-weight: 500; color: var(--muted); }
+
+/* Liste des salariés et formulaire */
+.emp-list { display: flex; flex-direction: column; gap: 8px; margin: 0 0 14px; padding: 0; list-style: none; }
+.emp-item {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  padding: 10px 10px 10px 14px; border: 1px solid var(--border); border-left: 6px solid var(--c); border-radius: 12px;
+}
+.emp-item .emp-text { flex: 1 1 140px; }
+.emp-actions { display: flex; flex-wrap: wrap; gap: 4px; margin-left: auto; }
+.settings { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--border); }
+.settings h3 { margin-bottom: 10px; font-size: 1rem; }
+.form-grid { display: grid; gap: 14px; }
+.field { display: flex; flex-direction: column; gap: 6px; font-size: .9rem; font-weight: 650; }
+.field > span:first-child { font-size: .84rem; color: var(--muted); }
+.swatches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.swatch {
+  width: 38px; height: 38px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--border-strong); background: var(--sw);
+}
+.swatch[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--text); }
+input[type="color"] {
+  width: 54px; height: 40px; padding: 2px; cursor: pointer;
+  border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface);
+}
+.form-error { margin: 0; font-size: .88rem; font-weight: 650; color: var(--danger); }
+.confirm-msg { margin: 0; white-space: pre-line; }
+
+/* Notification temporaire (en bas de l'écran) */
+.toast {
+  position: fixed; inset: auto auto 24px 50%; transform: translateX(-50%);
+  z-index: 1000; display: flex; align-items: center; gap: 14px;
+  max-width: calc(100vw - 32px); margin: 0; padding: 12px 16px; overflow: visible;
+  border: 0; border-radius: 12px; background: #1d2433; color: #fff; box-shadow: var(--shadow-lg);
+  font-size: .92rem; font-weight: 600;
+  opacity: 0; pointer-events: none; transition: opacity .2s;
+}
+.toast.show { opacity: 1; pointer-events: auto; }
+:root[data-theme="dark"] .toast { background: #e9edf5; color: #111827; }
+.toast-btn {
+  min-height: 34px; padding: 0 12px; border: 1px solid currentColor; border-radius: 8px;
+  background: transparent; color: inherit; font: inherit; font-weight: 800; cursor: pointer;
+}
+
+/* ---------- 6. Téléphone ---------- */
+@media (max-width: 760px) {
+  body { font-size: 14.5px; }
+  .app { padding: 10px 12px 40px; }
+  .brand h1 { font-size: 1.08rem; }
+  .logo { width: 38px; height: 38px; border-radius: 11px; }
+  .actions { padding: 8px; }
+  .actions .seg { flex: 1 1 auto; }
+  .actions .seg button { flex: 1; padding: 0 10px; }
+  .actions .filter { flex: 1 1 150px; }
+  .actions .filter select { width: 100%; }
+  .actions .spacer { display: none; }
+  .actions > .btn { flex: 1 1 calc(33.33% - 8px); padding: 0 8px; font-size: .88rem; }
+  .toolbar { gap: 8px; margin: 14px 0 10px; }
+  .toolbar .period { order: -1; flex: 1 1 100%; }
+  .toolbar .nav { width: 100%; }
+  .toolbar .nav select { flex: 1 1 120px; }
+  #view-week .toolbar .nav { flex-wrap: nowrap; }
+  #week-date { flex: 1 1 0; min-width: 0; padding: 0 8px; }
+  .toolbar .tools { width: 100%; margin-left: 0; flex-wrap: nowrap; }
+  .toolbar .tools .btn { flex: 1 1 auto; padding: 0 10px; font-size: .88rem; }
+  .lbl-long { display: none; }
+  .lbl-short { display: inline; }
+  .emp-meta { white-space: normal; }
+  .col-name { width: 116px; min-width: 116px; max-width: 116px; }
+  .emp-btn { gap: 6px; padding: 8px 8px 8px 12px; }
+  .grid tbody .emp-dot { display: none; }
+  .week-grid { min-width: 860px; }
+  dialog.dlg, dialog.dlg-sm {
+    width: 100vw; max-width: 100vw; margin: auto 0 0;
+    border-radius: 18px 18px 0 0;
+    max-height: 92vh; max-height: 92dvh;
+  }
+  .dlg-inner { max-height: 92vh; max-height: 92dvh; }
+  .dlg-foot { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .dlg-foot .btn { flex: 1 1 auto; }
+  .dlg-foot .spacer { display: none; }
+  .status-seg button { font-size: .8rem; }
+  .shift-row { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) 54px auto; gap: 6px; }
+}
+
+/* ---------- 7. Impression (A4 paysage, sans boutons) ---------- */
+@media print {
+  @page { size: A4 landscape; margin: 8mm; }
+  :root, :root[data-theme] {
+    color-scheme: light;
+    --bg: #fff; --surface: #fff; --surface-2: #f1f3f6; --surface-3: #f1f3f6;
+    --border: #b9c0ca; --border-strong: #8e97a4; --text: #000; --muted: #3f4855;
+    --ok: #12602f; --ok-bg: #dcf2e3; --under: #7a4100; --under-bg: #fde9c4; --over: #9d1a20; --over-bg: #fbdcdc;
+    --today: #fff;
+    --ds-repos: #333; --ds-repos-bg: #e9ecf0; --ds-conge: #064a6e; --ds-conge-bg: #dbeffb;
+    --ds-absent: #6e3008; --ds-absent-bg: #fbe9c6; --ds-maladie: #561a87; --ds-maladie-bg: #ede0fb;
+    --shift-alpha: .18; --shadow: none;
+  }
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  html, body { background: #fff !important; }
+  body { font-size: 9.5pt; }
+  .app { max-width: none; padding: 0; }
+  .app-header, .actions, .toolbar, .banner, .app-footer, dialog, .toast, .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .print-head { display: flex !important; justify-content: space-between; align-items: baseline; margin-bottom: 6px; font-size: 12pt; }
+  .print-head span { font-size: 8.5pt; color: #444; }
+  .table-wrap { overflow: visible !important; border: 1px solid #8e97a4; border-radius: 0; box-shadow: none; }
+  .grid { min-width: 0 !important; }
+  .week-grid { table-layout: fixed; }
+  .week-grid .col-name { width: 15%; min-width: 0; max-width: none; }
+  .week-grid .col-total { width: 9%; min-width: 0; }
+  .grid td.cell { min-width: 0; }
+  .col-name { position: static; }
+  .emp-btn, .cell-btn, .day-head, .week-link { min-height: 0 !important; padding: 3px 4px !important; }
+  .grid tbody th.col-name { box-shadow: inset 4px 0 0 var(--c); }
+  .emp-btn { padding-left: 8px !important; }
+  .cell-empty, .dh-icon, .emp-dot { display: none !important; }
+  .shift { padding: 1px 4px; font-size: 8.5pt; }
+  .cell-btn .badge { padding: 3px; }
+  .tot { font-size: 11pt; }
+  .grid thead th.is-today { box-shadow: none; }
+  th.is-today .dh-name, th.is-today .dh-date { color: inherit; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  .legend { margin-top: 6px; font-size: 8pt; }
+  .legend .hint, .note .hint { display: none; }
+}
+</style>
+</head>
+<body>
+<noscript><p style="padding:16px;background:#fde2e2;color:#7a1016">Cette application a besoin de JavaScript pour fonctionner.</p></noscript>
+
+<div class="app">
+  <!-- ============ EN-TÊTE ============ -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="logo" data-icon="calendar" aria-hidden="true"></div>
+      <div>
+        <h1>Planning du restaurant</h1>
+        <div class="save-status" id="save-status" role="status" aria-live="polite">Chargement…</div>
+      </div>
+    </div>
+    <button type="button" class="btn icon-btn" id="btn-theme" data-action="theme" aria-label="Changer de thème"></button>
+  </header>
+
+  <!-- ============ BANDEAUX ============ -->
+  <div id="banner-storage" class="banner banner-error" role="alert" hidden>
+    <span data-icon="alert"></span>
+    <span class="banner-msg" id="banner-storage-msg"></span>
+    <span class="banner-actions">
+      <button type="button" class="btn" data-action="retry-save">Réessayer</button>
+      <button type="button" class="btn primary" data-action="export">Exporter mes données</button>
+    </span>
+  </div>
+  <div id="banner-reminder" class="banner banner-reminder" hidden>
+    <span data-icon="save"></span>
+    <span class="banner-msg" id="banner-reminder-msg"></span>
+    <span class="banner-actions">
+      <button type="button" class="btn" data-action="export">Exporter maintenant</button>
+      <button type="button" class="btn ghost icon-btn" data-action="dismiss-reminder" data-icon="x" aria-label="Masquer le rappel"></button>
+    </span>
+  </div>
+
+  <!-- ============ ACTIONS PRINCIPALES ============ -->
+  <nav class="actions" aria-label="Actions principales">
+    <div class="seg" role="group" aria-label="Vue">
+      <button type="button" id="tab-week" data-action="view-week" aria-pressed="true">Semaine</button>
+      <button type="button" id="tab-month" data-action="view-month" aria-pressed="false">Mois</button>
+    </div>
+    <label class="filter"><span class="sr-only">Filtrer par poste</span><select id="role-filter"></select></label>
+    <span class="spacer"></span>
+    <button type="button" class="btn" data-action="employees" data-icon="users"><span>Salariés</span></button>
+    <button type="button" class="btn" id="btn-undo" data-action="undo" data-icon="undo" title="Annuler la dernière modification (Ctrl+Z)" disabled><span>Annuler</span></button>
+    <button type="button" class="btn" data-action="export" data-icon="download" title="Télécharger une sauvegarde (fichier JSON)"><span>Exporter</span></button>
+    <button type="button" class="btn" data-action="import" data-icon="upload" title="Recharger une sauvegarde (fichier JSON)"><span>Importer</span></button>
+    <button type="button" class="btn" data-action="print" data-icon="printer"><span>Imprimer / PDF</span></button>
+  </nav>
+
+  <!-- Titre visible uniquement à l'impression -->
+  <div class="print-only print-head" id="print-title"></div>
+
+  <main>
+    <!-- ============ VUE SEMAINE ============ -->
+    <section id="view-week" aria-label="Planning de la semaine">
+      <div class="toolbar">
+        <div class="nav">
+          <button type="button" class="btn icon-btn" data-action="prev" data-icon="chev-left" aria-label="Semaine précédente" title="Semaine précédente"></button>
+          <button type="button" class="btn" data-action="today">Aujourd’hui</button>
+          <button type="button" class="btn icon-btn" data-action="next" data-icon="chev-right" aria-label="Semaine suivante" title="Semaine suivante"></button>
+          <input type="date" id="week-date" aria-label="Aller à une date" title="Aller à une date">
+        </div>
+        <h2 class="period" id="week-label"></h2>
+        <div class="tools">
+          <button type="button" class="btn" data-action="copy-week" data-icon="copy" title="Copier toute la semaine vers la semaine suivante"><span class="lbl-long">Copier vers la semaine suivante</span><span class="lbl-short">Copier → sem. suivante</span></button>
+          <button type="button" class="btn ghost danger" data-action="clear-week" data-icon="trash"><span>Vider la semaine</span></button>
+        </div>
+      </div>
+      <div class="table-wrap"><table class="grid week-grid" id="week-table"></table></div>
+      <div class="legend">
+        <span class="lg"><i class="sw cmp-ok"></i> Contrat respecté</span>
+        <span class="lg"><i class="sw cmp-under"></i> Heures manquantes</span>
+        <span class="lg"><i class="sw cmp-over"></i> Dépassement</span>
+        <span class="lg"><b>+1</b>&nbsp;se termine le lendemain (compté sur le jour de début)</span>
+        <span class="hint">Astuce : touchez une case pour la modifier, ou l’en-tête d’un jour pour copier / vider la journée.</span>
+      </div>
+    </section>
+
+    <!-- ============ VUE MOIS ============ -->
+    <section id="view-month" aria-label="Heures du mois" hidden>
+      <div class="toolbar">
+        <div class="nav">
+          <button type="button" class="btn icon-btn" data-action="prev-month" data-icon="chev-left" aria-label="Mois précédent" title="Mois précédent"></button>
+          <select id="month-select" aria-label="Mois"></select>
+          <input type="number" id="year-input" min="2000" max="2100" step="1" inputmode="numeric" aria-label="Année">
+          <button type="button" class="btn icon-btn" data-action="next-month" data-icon="chev-right" aria-label="Mois suivant" title="Mois suivant"></button>
+          <button type="button" class="btn" data-action="this-month">Ce mois-ci</button>
+        </div>
+        <h2 class="period" id="month-label"></h2>
+      </div>
+      <div class="table-wrap"><table class="grid month-grid" id="month-table"></table></div>
+      <p class="note">
+        <b>*</b> Semaine partielle : seuls les jours de ce mois sont comptés (pas de couleur, survolez pour voir le total de la semaine complète).
+        « Base contrat » = contrat hebdomadaire × nombre de jours du mois ÷ 7.
+        <span class="hint">Cliquez sur une semaine pour l’ouvrir.</span>
+      </p>
+      <div class="legend">
+        <span class="lg"><i class="sw cmp-ok"></i> Contrat respecté</span>
+        <span class="lg"><i class="sw cmp-under"></i> Heures manquantes</span>
+        <span class="lg"><i class="sw cmp-over"></i> Dépassement</span>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ PIED DE PAGE ============ -->
+  <footer class="app-footer">
+    <p id="footer-info"></p>
+    <div class="footer-actions">
+      <button type="button" class="btn ghost" data-action="load-sample">Recharger l’exemple</button>
+      <button type="button" class="btn danger" data-action="reset" data-icon="trash"><span>Tout effacer</span></button>
+    </div>
+  </footer>
+</div>
+
+<!-- ============ FENÊTRE : ÉDITION D'UNE CASE ============ -->
+<dialog id="dlg-cell" class="dlg" data-backdrop-close aria-labelledby="cell-title">
+  <div class="dlg-inner">
+    <div class="dlg-head">
+      <div>
+        <h2 class="dlg-title" id="cell-title"><span class="emp-dot" id="cell-dot"></span><span id="cell-name"></span></h2>
+        <p class="dlg-sub" id="cell-sub"></p>
+      </div>
+      <button type="button" class="btn icon-btn ghost" data-close data-icon="x" aria-label="Fermer"></button>
+    </div>
+    <div class="dlg-body">
+      <div class="status-seg" id="cell-status" role="group" aria-label="Type de journée">
+        <button type="button" data-status="travail">Travail</button>
+        <button type="button" data-status="repos">Repos</button>
+        <button type="button" data-status="conge">Congé</button>
+        <button type="button" data-status="absent">Absent</button>
+        <button type="button" data-status="maladie">Maladie</button>
+      </div>
+      <div id="cell-work">
+        <div id="cell-shifts"></div>
+        <button type="button" class="btn add-shift" id="cell-add-shift" data-icon="plus"><span>Ajouter un créneau</span></button>
+        <div class="chips-wrap" id="cell-chips-wrap">
+          <span class="chips-lbl">Créneaux déjà utilisés (un clic pour les ajouter) :</span>
+          <div class="chips" id="cell-chips"></div>
+        </div>
+      </div>
+      <p class="off-msg" id="cell-off" hidden></p>
+      <div class="warn" id="cell-warn" hidden></div>
+      <div class="cell-total-line">Total de la journée <strong id="cell-total">0h</strong></div>
+      <details class="copy-box" id="cell-copy">
+        <summary>Copier cette case vers d’autres jours</summary>
+        <div id="cell-copy-days"></div>
+        <div class="copy-row">
+          <button type="button" class="btn primary" id="cell-copy-btn" data-icon="copy"><span>Copier vers les jours cochés</span></button>
+          <span class="copy-msg" id="cell-copy-msg" role="status"></span>
+        </div>
+      </details>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn ghost danger" id="cell-clear" data-icon="trash"><span>Vider la case</span></button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="cell-revert">Annuler les modifications</button>
+      <button type="button" class="btn primary" data-close>Terminé</button>
+    </div>
+    <p class="dlg-hint">Chaque modification est enregistrée automatiquement.</p>
+  </div>
+</dialog>
+
+<!-- ============ FENÊTRE : JOURNÉE (copier / vider) ============ -->
+<dialog id="dlg-day" class="dlg" data-backdrop-close aria-labelledby="day-title">
+  <div class="dlg-inner">
+    <div class="dlg-head">
+      <div>
+        <h2 class="dlg-title" id="day-title"></h2>
+        <p class="dlg-sub" id="day-sub"></p>
+      </div>
+      <button type="button" class="btn icon-btn ghost" data-close data-icon="x" aria-label="Fermer"></button>
+    </div>
+    <div class="dlg-body">
+      <p>Copier les horaires de <b id="day-scope">tous les salariés</b> de cette journée vers :</p>
+      <div id="day-copy-days"></div>
+      <p class="muted small">Les jours cochés seront remplacés par cette journée.</p>
+      <p class="form-error" id="day-error" hidden></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn ghost danger" id="day-clear" data-icon="trash"><span>Vider cette journée</span></button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-close>Annuler</button>
+      <button type="button" class="btn primary" id="day-copy-btn" data-icon="copy"><span>Copier</span></button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ============ FENÊTRE : LISTE DES SALARIÉS ============ -->
+<dialog id="dlg-employees" class="dlg" data-backdrop-close aria-labelledby="emp-title">
+  <div class="dlg-inner">
+    <div class="dlg-head">
+      <h2 class="dlg-title" id="emp-title">Salariés</h2>
+      <button type="button" class="btn icon-btn ghost" data-close data-icon="x" aria-label="Fermer"></button>
+    </div>
+    <div class="dlg-body">
+      <ul class="emp-list" id="emp-list"></ul>
+      <button type="button" class="btn primary" data-action="add-employee" data-icon="plus"><span>Ajouter un salarié</span></button>
+      <div class="settings">
+        <h3>Réglages</h3>
+        <label class="field">
+          <span>Tolérance pour la couleur verte (en minutes, en plus ou en moins du contrat)</span>
+          <input type="number" id="set-tolerance" min="0" max="600" step="5" inputmode="numeric">
+        </label>
+        <p class="muted small">0 = le total doit être exactement égal au contrat pour être vert.</p>
+      </div>
+    </div>
+    <div class="dlg-foot">
+      <span class="spacer"></span>
+      <button type="button" class="btn primary" data-close>Fermer</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ============ FENÊTRE : AJOUT / MODIFICATION D'UN SALARIÉ ============ -->
+<dialog id="dlg-emp-form" class="dlg dlg-sm" aria-labelledby="empf-title">
+  <form id="emp-form" class="dlg-inner" novalidate>
+    <div class="dlg-head">
+      <h2 class="dlg-title" id="empf-title">Nouveau salarié</h2>
+      <button type="button" class="btn icon-btn ghost" data-close data-icon="x" aria-label="Fermer"></button>
+    </div>
+    <div class="dlg-body form-grid">
+      <label class="field"><span>Prénom</span><input type="text" id="empf-name" maxlength="40" autocomplete="off" required></label>
+      <label class="field"><span>Poste</span><select id="empf-role"></select></label>
+      <label class="field"><span>Contrat (heures par semaine)</span><input type="number" id="empf-contract" min="0" max="80" step="0.5" inputmode="decimal" required></label>
+      <div class="field">
+        <span>Couleur</span>
+        <div class="swatches" id="empf-swatches"></div>
+        <label class="swatches small muted">Autre couleur : <input type="color" id="empf-color"></label>
+      </div>
+      <p class="form-error" id="empf-error" hidden></p>
+    </div>
+    <div class="dlg-foot">
+      <button type="button" class="btn ghost danger" id="empf-delete" data-icon="trash"><span>Supprimer</span></button>
+      <span class="spacer"></span>
+      <button type="button" class="btn" data-close>Annuler</button>
+      <button type="submit" class="btn primary" id="empf-submit">Ajouter</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ============ FENÊTRE : CONFIRMATION ============ -->
+<dialog id="dlg-confirm" class="dlg dlg-sm" aria-labelledby="confirm-title">
+  <form method="dialog" class="dlg-inner">
+    <div class="dlg-head"><h2 class="dlg-title" id="confirm-title"></h2></div>
+    <div class="dlg-body"><p class="confirm-msg" id="confirm-msg"></p></div>
+    <div class="dlg-foot">
+      <span class="spacer"></span>
+      <button type="submit" value="cancel" class="btn" id="confirm-cancel">Annuler</button>
+      <button type="submit" value="ok" class="btn primary" id="confirm-ok">Confirmer</button>
+    </div>
+  </form>
+</dialog>
+
+<input type="file" id="import-file" accept=".json,application/json" hidden>
+<div id="toast" class="toast" popover="manual" role="status" aria-live="polite"></div>
+
+<script>
+/* =====================================================================
+   PLANNING DU RESTAURANT — code de l'application
+   ---------------------------------------------------------------------
+   Sections :
+     1. Constantes et utilitaires (dates, heures, texte, icônes)
+     2. État (les données et l'affichage en cours)
+     3. Stockage (localStorage, export, import, thème)
+     4. Calculs (heures, comparaison au contrat, semaines du mois)
+     5. Rendu (affichage des tableaux)
+     6. Fenêtres (case, journée, salariés, confirmation, notifications)
+     7. Actions (copier, vider, effacer…) et événements
+     8. Démarrage
+   ---------------------------------------------------------------------
+   Format des données enregistrées (localStorage, clé STORAGE_KEY) :
+   {
+     version: 1,
+     createdAt: "2026-11-07T10:00:00.000Z",   // création des données
+     lastExport: "2026-11-07T10:00:00.000Z",  // dernier export (ou null)
+     settings: { tolerance: 0 },               // tolérance en minutes
+     employees: [ { id, name, role, contract, color } ],
+     planning: {
+       "2026-11-03": {                          // date AAAA-MM-JJ
+         "<id salarié>": { status: "travail", shifts: [ { start: "11:30", end: "15:00" } ] }
+       }
+     }
+   }
+   status possibles : travail, repos, conge, absent, maladie
+   ===================================================================== */
+'use strict';
+
+/* =====================================================================
+   1. CONSTANTES ET UTILITAIRES
+   ===================================================================== */
+const STORAGE_KEY = 'planningResto.donnees.v1';     // données (salariés + planning)
+const THEME_KEY = 'planningResto.theme';            // thème clair / sombre
+const REMINDER_KEY = 'planningResto.rappelMasque';  // rappel d'export masqué (pour la session)
+const DATA_VERSION = 1;
+const EXPORT_REMINDER_DAYS = 7;   // rappel si aucun export depuis plus de 7 jours
+const MAX_UNDO = 60;              // nombre d'actions annulables
+const MS_PER_DAY = 86400000;
+
+const ROLES = [
+  { id: 'cuisine', label: 'Cuisine' },
+  { id: 'salle', label: 'Salle' },
+  { id: 'bar', label: 'Bar' },
+  { id: 'plonge', label: 'Plonge' },
+  { id: 'manager', label: 'Manager' },
+  { id: 'autre', label: 'Autre' },
+];
+const ROLE_IDS = ROLES.map(r => r.id);
+
+const STATUSES = [
+  { id: 'travail', label: 'Travail' },
+  { id: 'repos', label: 'Repos' },
+  { id: 'conge', label: 'Congé' },
+  { id: 'absent', label: 'Absent' },
+  { id: 'maladie', label: 'Maladie' },
+];
+const STATUS_IDS = STATUSES.map(s => s.id);
+
+/* Couleurs proposées pour les salariés (toute autre couleur reste possible) */
+const PALETTE = ['#2563eb', '#ea580c', '#16a34a', '#db2777', '#7c3aed', '#0891b2',
+                 '#ca8a04', '#dc2626', '#4f46e5', '#059669', '#9333ea', '#64748b'];
+
+const DAY_NAMES = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche'];
+const DAY_SHORT = ['Lun.', 'Mar.', 'Mer.', 'Jeu.', 'Ven.', 'Sam.', 'Dim.'];
+const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août',
+                'septembre', 'octobre', 'novembre', 'décembre'];
+const MONTHS_SHORT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août',
+                      'sept.', 'oct.', 'nov.', 'déc.'];
+
+/* Icônes SVG (dessinées au trait, aucune dépendance externe) */
+const ICONS = {
+  'calendar': '<rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18M8 14h3M13 14h3M8 18h3"/>',
+  'chev-left': '<path d="M15 18l-6-6 6-6"/>',
+  'chev-right': '<path d="M9 18l6-6-6-6"/>',
+  'users': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+  'undo': '<path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  'download': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/>',
+  'upload': '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/>',
+  'printer': '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
+  'copy': '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',
+  'trash': '<path d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
+  'moon': '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  'sun': '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>',
+  'plus': '<path d="M12 5v14M5 12h14"/>',
+  'x': '<path d="M18 6L6 18M6 6l12 12"/>',
+  'edit': '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+  'up': '<path d="M12 19V5M5 12l7-7 7 7"/>',
+  'down': '<path d="M12 5v14M19 12l-7 7-7-7"/>',
+  'alert': '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
+  'save': '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
+};
+function icon(name) {
+  return `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[name] || ''}</svg>`;
+}
+
+/* ---------- Petits utilitaires ---------- */
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function uid() { return 'e' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+function clone(obj) { return obj == null ? null : JSON.parse(JSON.stringify(obj)); }
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function fmtNumber(n) { return Number(n).toLocaleString('fr-FR', { maximumFractionDigits: 2 }); }
+function plural(n, singular, pluralForm) { return `${n} ${n > 1 ? (pluralForm || singular + 's') : singular}`; }
+function roleLabel(id) { return (ROLES.find(r => r.id === id) || ROLES[ROLES.length - 1]).label; }
+function statusLabel(id) { return (STATUSES.find(s => s.id === id) || STATUSES[0]).label; }
+
+/** "#2563eb" -> "37, 99, 235" (pour les fonds transparents des créneaux) */
+function hexToRgb(hex) {
+  const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return '100, 116, 139';
+  const n = parseInt(m[1], 16);
+  return `${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}`;
+}
+function empStyle(emp) { return `--c:${emp.color};--c-rgb:${hexToRgb(emp.color)}`; }
+
+/* ---------- Dates (toujours en heure locale, semaines du lundi au dimanche) ---------- */
+function pad2(n) { return String(n).padStart(2, '0'); }
+/** Date -> "AAAA-MM-JJ" (clé utilisée dans les données) */
+function toKey(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+/** "AAAA-MM-JJ" -> Date (à minuit, heure locale) */
+function fromKey(key) { const [y, m, d] = key.split('-').map(Number); return new Date(y, m - 1, d); }
+function isDateKey(key) { return typeof key === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(key) && toKey(fromKey(key)) === key; }
+/** Ajoute n jours (sans souci de changement d'heure été/hiver) */
+function addDays(d, n) { return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n); }
+function today() { return addDays(new Date(), 0); }
+/** 0 = lundi … 6 = dimanche */
+function dayIndex(d) { return (d.getDay() + 6) % 7; }
+function startOfWeek(d) { return addDays(d, -dayIndex(d)); }
+function weekDays(monday) { return Array.from({ length: 7 }, (_, i) => addDays(monday, i)); }
+function daysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
+function monthDays(year, month) { return Array.from({ length: daysInMonth(year, month) }, (_, i) => new Date(year, month, i + 1)); }
+/** Numéro de semaine ISO (semaine 1 = celle qui contient le premier jeudi de l'année) */
+function isoWeekNumber(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const day = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d - yearStart) / MS_PER_DAY + 1) / 7);
+}
+function dayNumber(d) { return d.getDate() === 1 ? '1er' : String(d.getDate()); }
+/** "lundi 3 novembre" (+ année si demandé) */
+function fmtDayLong(d, withYear) {
+  const s = `${DAY_NAMES[dayIndex(d)]} ${dayNumber(d)} ${MONTHS[d.getMonth()]}`;
+  return withYear ? `${s} ${d.getFullYear()}` : s;
+}
+/** "du 2 au 8 novembre 2026" */
+function fmtWeekRange(monday) {
+  const sunday = addDays(monday, 6);
+  const end = `${dayNumber(sunday)} ${MONTHS[sunday.getMonth()]} ${sunday.getFullYear()}`;
+  if (monday.getMonth() === sunday.getMonth()) return `du ${dayNumber(monday)} au ${end}`;
+  if (monday.getFullYear() === sunday.getFullYear()) return `du ${dayNumber(monday)} ${MONTHS[monday.getMonth()]} au ${end}`;
+  return `du ${dayNumber(monday)} ${MONTHS[monday.getMonth()]} ${monday.getFullYear()} au ${end}`;
+}
+/** ISO -> "7 nov. 2026 à 14:32" */
+function fmtDateTime(iso) {
+  const d = new Date(iso);
+  if (isNaN(d)) return '?';
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()} à ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/* ---------- Heures ---------- */
+/** "11:30" -> 690 (minutes depuis minuit), ou null si invalide */
+function parseTime(value) {
+  if (typeof value !== 'string') return null;
+  const m = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!m) return null;
+  const h = Number(m[1]), min = Number(m[2]);
+  if (h > 23 || min > 59) return null;
+  return h * 60 + min;
+}
+/** "9:05" ou "09:05" -> "09:05", ou null */
+function normalizeTime(value) {
+  const m = parseTime(value);
+  return m === null ? null : `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+}
+/**
+ * Durée d'un créneau en minutes.
+ * Si la fin est avant le début, le créneau passe minuit : 18:00-01:00 = 7 h.
+ * Retourne null si le créneau est incomplet ou si début = fin.
+ */
+function shiftMinutes(shift) {
+  if (!shift) return null;
+  const a = parseTime(shift.start), b = parseTime(shift.end);
+  if (a === null || b === null || a === b) return null;
+  return b > a ? b - a : b + 1440 - a;
+}
+function crossesMidnight(shift) {
+  const a = parseTime(shift.start), b = parseTime(shift.end);
+  return a !== null && b !== null && b < a;
+}
+/** 450 -> "7h30" ; 2100 -> "35h" ; -240 -> "−4h" */
+function fmtHours(minutes) {
+  if (!Number.isFinite(minutes)) return '–';
+  const negative = minutes < 0;
+  const total = Math.round(Math.abs(minutes));
+  const h = Math.floor(total / 60), m = total % 60;
+  return (negative ? '−' : '') + h + 'h' + (m ? pad2(m) : '');
+}
+/** Écart signé : "+3h", "−4h30", "±0" */
+function fmtDiff(minutes) {
+  if (Math.round(minutes) === 0) return '±0';
+  return (minutes > 0 ? '+' : '') + fmtHours(minutes);
+}
+
+/* =====================================================================
+   2. ÉTAT
+   ===================================================================== */
+/** Données enregistrées (salariés, planning, réglages) */
+let state = createEmptyState();
+
+/** Ce qui est affiché à l'écran (non enregistré) */
+const ui = {
+  view: 'week',                 // 'week' (semaine) ou 'month' (mois)
+  anchor: today(),              // une date de la semaine affichée
+  month: today().getMonth(),    // mois affiché dans la vue Mois (0 = janvier)
+  year: today().getFullYear(),
+  filter: 'all',                // filtre par poste ('all' = tous)
+  reminderDismissed: false,     // rappel d'export masqué pour cette session
+};
+
+/** Historique pour le bouton « Annuler » (copies JSON de l'état) */
+let undoStack = [];
+
+/** Résultat de la dernière sauvegarde */
+const storageInfo = { ok: true, reason: '', lastSaved: null };
+
+function createEmptyState() {
+  return {
+    version: DATA_VERSION,
+    createdAt: new Date().toISOString(),
+    lastExport: null,
+    settings: { tolerance: 0 },
+    employees: [],
+    planning: {},
+  };
+}
+
+function weekStart() { return startOfWeek(ui.anchor); }
+function findEmployee(id) { return state.employees.find(e => e.id === id) || null; }
+function visibleEmployees() {
+  return ui.filter === 'all' ? state.employees : state.employees.filter(e => e.role === ui.filter);
+}
+
+/** Contenu d'une case (null si vide) */
+function getCell(dateKey, empId) {
+  const day = state.planning[dateKey];
+  return day && day[empId] ? day[empId] : null;
+}
+/** Remplace le contenu d'une case (null ou case sans créneau = case vidée) */
+function setCell(dateKey, empId, cell) {
+  const clean = normalizeCell(cell);
+  if (clean) {
+    if (!state.planning[dateKey]) state.planning[dateKey] = {};
+    state.planning[dateKey][empId] = clean;
+  } else if (state.planning[dateKey]) {
+    delete state.planning[dateKey][empId];
+    if (!Object.keys(state.planning[dateKey]).length) delete state.planning[dateKey];
+  }
+}
+
+/** Nettoie une case : statut connu, créneaux valides triés par heure de début */
+function normalizeCell(cell) {
+  if (!cell || typeof cell !== 'object') return null;
+  const status = STATUS_IDS.includes(cell.status) ? cell.status : 'travail';
+  if (status !== 'travail') return { status, shifts: [] };
+  const shifts = [];
+  for (const s of Array.isArray(cell.shifts) ? cell.shifts : []) {
+    if (!s || typeof s !== 'object') continue;
+    const start = normalizeTime(s.start), end = normalizeTime(s.end);
+    if (start === null || end === null || start === end) continue;
+    shifts.push({ start, end });
+  }
+  shifts.sort((a, b) => parseTime(a.start) - parseTime(b.start));
+  return shifts.length ? { status: 'travail', shifts } : null;
+}
+
+/**
+ * Vérifie et nettoie des données (venant du stockage ou d'un fichier importé).
+ * Lève une erreur si le contenu n'est pas un planning.
+ */
+function normalizeState(raw) {
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.employees) ||
+      !raw.planning || typeof raw.planning !== 'object' || Array.isArray(raw.planning)) {
+    throw new Error('Ce fichier ne ressemble pas à une sauvegarde du planning.');
+  }
+  const s = createEmptyState();
+  if (raw.createdAt && !isNaN(Date.parse(raw.createdAt))) s.createdAt = new Date(raw.createdAt).toISOString();
+  if (raw.lastExport && !isNaN(Date.parse(raw.lastExport))) s.lastExport = new Date(raw.lastExport).toISOString();
+  const tol = Number(raw.settings && raw.settings.tolerance);
+  if (Number.isFinite(tol) && tol >= 0 && tol <= 600) s.settings.tolerance = Math.round(tol);
+
+  const idMap = {};   // ancien identifiant -> identifiant retenu
+  raw.employees.forEach((e, i) => {
+    if (!e || typeof e !== 'object') return;
+    const valid = typeof e.id === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(e.id) && !Object.values(idMap).includes(e.id);
+    const id = valid ? e.id : uid();
+    if (typeof e.id === 'string' && !(e.id in idMap)) idMap[e.id] = id;
+    const contract = Number(e.contract);
+    s.employees.push({
+      id,
+      name: String(e.name == null ? '' : e.name).trim().slice(0, 40) || 'Sans nom',
+      role: ROLE_IDS.includes(e.role) ? e.role : 'autre',
+      contract: Number.isFinite(contract) && contract >= 0 && contract <= 80 ? Math.round(contract * 100) / 100 : 0,
+      color: /^#[0-9a-f]{6}$/i.test(e.color) ? e.color.toLowerCase() : PALETTE[i % PALETTE.length],
+    });
+  });
+
+  for (const [dateKey, day] of Object.entries(raw.planning)) {
+    if (!isDateKey(dateKey) || !day || typeof day !== 'object') continue;
+    for (const [oldId, cell] of Object.entries(day)) {
+      const id = idMap[oldId];
+      if (!id) continue;
+      const clean = normalizeCell(cell);
+      if (clean) {
+        if (!s.planning[dateKey]) s.planning[dateKey] = {};
+        s.planning[dateKey][id] = clean;
+      }
+    }
+  }
+  return s;
+}
+
+/** Mémorise l'état AVANT une modification (pour « Annuler ») */
+function checkpoint() {
+  undoStack.push(JSON.stringify(state));
+  if (undoStack.length > MAX_UNDO) undoStack.shift();
+}
+/** Revient à l'état précédent */
+function undo() {
+  if (!undoStack.length) { toast('Rien à annuler.'); return; }
+  const lastExport = state.lastExport;          // l'export a bien eu lieu : on le garde
+  state = JSON.parse(undoStack.pop());
+  state.lastExport = lastExport;
+  commit();
+  toast('Dernière modification annulée.');
+}
+/** Enregistre puis réaffiche : à appeler après CHAQUE modification */
+function commit() {
+  saveState();
+  render();
+}
+
+/** Données d'exemple : 5 salariés et la semaine en cours */
+function buildSampleState() {
+  const s = createEmptyState();
+  const add = (name, role, contract, color) => {
+    const e = { id: uid(), name, role, contract, color };
+    s.employees.push(e);
+    return e;
+  };
+  const camille = add('Camille', 'manager', 39, '#7c3aed');
+  const lucas = add('Lucas', 'cuisine', 35, '#ea580c');
+  const sarah = add('Sarah', 'plonge', 35, '#0891b2');
+  const ines = add('Inès', 'salle', 24, '#db2777');
+  const hugo = add('Hugo', 'bar', 20, '#16a34a');
+
+  const monday = startOfWeek(today());
+  // put(salarié, jour 0=lundi…6=dimanche, statut ou liste de créneaux)
+  const put = (emp, day, value) => {
+    const key = toKey(addDays(monday, day));
+    const cell = typeof value === 'string'
+      ? { status: value, shifts: [] }
+      : { status: 'travail', shifts: value.map(([start, end]) => ({ start, end })) };
+    if (!s.planning[key]) s.planning[key] = {};
+    s.planning[key][emp.id] = cell;
+  };
+  const coupure = (a, b, c, d) => [[a, b], [c, d]];
+
+  // Camille, manager 39 h : 4 × 8 h + 7 h = 39 h (vert)
+  put(camille, 0, 'repos');
+  for (let d = 1; d <= 4; d++) put(camille, d, coupure('10:00', '15:00', '18:00', '21:00'));
+  put(camille, 5, coupure('10:00', '15:00', '18:00', '20:00'));
+  put(camille, 6, 'repos');
+  // Lucas, cuisine 35 h : 5 × 7 h = 35 h (vert), congé le dimanche
+  put(lucas, 0, 'repos');
+  for (let d = 1; d <= 5; d++) put(lucas, d, coupure('10:30', '14:30', '18:30', '21:30'));
+  put(lucas, 6, 'conge');
+  // Sarah, plonge 35 h : 4 × 8 h + 3 h = 35 h (vert)
+  put(sarah, 0, 'repos');
+  for (let d = 1; d <= 4; d++) put(sarah, d, coupure('11:00', '15:00', '19:00', '23:00'));
+  put(sarah, 5, [['11:00', '14:00']]);
+  put(sarah, 6, 'repos');
+  // Inès, salle 24 h : malade le jeudi, 20 h au total (orange)
+  put(ines, 0, 'repos');
+  put(ines, 1, 'repos');
+  put(ines, 2, [['11:30', '15:00']]);
+  put(ines, 3, 'maladie');
+  put(ines, 4, [['18:30', '23:00']]);
+  put(ines, 5, coupure('11:30', '15:00', '18:30', '23:00'));
+  put(ines, 6, [['11:30', '15:30']]);
+  // Hugo, bar 20 h : soirées après minuit, 23 h au total (rouge)
+  put(hugo, 0, 'repos');
+  put(hugo, 3, [['18:00', '01:00']]);
+  put(hugo, 4, [['18:00', '02:00']]);
+  put(hugo, 5, [['18:00', '02:00']]);
+  put(hugo, 6, 'repos');
+  return s;
+}
+
+/* =====================================================================
+   3. STOCKAGE
+   ===================================================================== */
+/** Lit les données enregistrées dans le navigateur */
+function loadFromStorage() {
+  let raw;
+  try {
+    raw = window.localStorage.getItem(STORAGE_KEY);
+  } catch (err) {
+    return { status: 'blocked' };
+  }
+  if (raw === null) return { status: 'empty' };
+  try {
+    return { status: 'ok', data: normalizeState(JSON.parse(raw)) };
+  } catch (err) {
+    // Données illisibles : on en garde une copie avant de repartir de zéro
+    const backupKey = `${STORAGE_KEY}.illisible.${Date.now()}`;
+    try { localStorage.setItem(backupKey, raw); } catch (_) { /* ignoré */ }
+    return { status: 'corrupted', backupKey };
+  }
+}
+
+function isQuotaError(err) {
+  return !!err && (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+                   err.code === 22 || err.code === 1014);
+}
+
+/** Enregistre TOUT l'état dans localStorage (appelé à chaque modification) */
+function saveState() {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    storageInfo.ok = true;
+    storageInfo.reason = '';
+    storageInfo.lastSaved = new Date();
+  } catch (err) {
+    storageInfo.ok = false;
+    storageInfo.reason = isQuotaError(err) ? 'full' : 'blocked';
+    console.error('Sauvegarde impossible :', err);
+  }
+  renderSaveStatus();
+  return storageInfo.ok;
+}
+
+/** Contenu du fichier d'export */
+function buildExportPayload(now) {
+  return {
+    app: 'planning-restaurant',
+    version: DATA_VERSION,
+    exportedAt: now.toISOString(),
+    createdAt: state.createdAt,
+    lastExport: now.toISOString(),
+    settings: state.settings,
+    employees: state.employees,
+    planning: state.planning,
+  };
+}
+
+/** Bouton « Exporter » : télécharge un fichier JSON daté */
+function exportData() {
+  const now = new Date();
+  const fileName = `planning-restaurant-${toKey(now)}.json`;
+  downloadTextFile(fileName, JSON.stringify(buildExportPayload(now), null, 2));
+  state.lastExport = now.toISOString();
+  commit();
+  toast(`Sauvegarde téléchargée : ${fileName}`);
+}
+
+function downloadTextFile(fileName, text) {
+  const blob = new Blob([text], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+
+function readFileText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}
+
+/** Bouton « Importer » : vérifie le fichier, demande confirmation, remplace les données */
+async function importFromText(text, fileName) {
+  let raw, data;
+  try {
+    raw = JSON.parse(text);
+  } catch (_) {
+    await askAlert('Import impossible', 'Ce fichier n’est pas une sauvegarde valide (contenu JSON illisible).');
+    return false;
+  }
+  try {
+    data = normalizeState(raw);
+  } catch (err) {
+    await askAlert('Import impossible', err.message);
+    return false;
+  }
+  const exportedAt = raw.exportedAt && !isNaN(Date.parse(raw.exportedAt)) ? raw.exportedAt : null;
+  if (!data.lastExport && exportedAt) data.lastExport = new Date(exportedAt).toISOString();
+  const nbDays = Object.keys(data.planning).length;
+  const ok = await askConfirm({
+    title: 'Importer cette sauvegarde ?',
+    message: `Fichier « ${fileName} » : ${plural(data.employees.length, 'salarié')}, ${plural(nbDays, 'journée')} de planning` +
+      (exportedAt ? `, sauvegardé le ${fmtDateTime(exportedAt)}` : '') +
+      `.\n\nVos données actuelles (${plural(state.employees.length, 'salarié')}) seront remplacées.`,
+    ok: 'Importer et remplacer',
+    danger: true,
+  });
+  if (!ok) return false;
+  checkpoint();
+  state = data;
+  commit();
+  toast('Sauvegarde importée.', { undo: true });
+  return true;
+}
+
+/* ---------- Thème clair / sombre (mémorisé) ---------- */
+function currentTheme() { return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'; }
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const btn = $('#btn-theme');
+  const label = theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre';
+  btn.innerHTML = icon(theme === 'dark' ? 'sun' : 'moon');
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
+}
+function toggleTheme() {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  applyTheme(next);
+  try { localStorage.setItem(THEME_KEY, next); } catch (_) { /* thème non mémorisé */ }
+}
+
+/* =====================================================================
+   4. CALCULS
+   ===================================================================== */
+/** Minutes travaillées dans une case (0 pour Repos, Congé, Absent, Maladie) */
+function cellMinutes(cell) {
+  if (!cell || cell.status !== 'travail') return 0;
+  return cell.shifts.reduce((total, s) => total + (shiftMinutes(s) || 0), 0);
+}
+/** Minutes d'un salarié pour un jour (un créneau après minuit compte pour le jour où il commence) */
+function dayMinutes(empId, date) { return cellMinutes(getCell(toKey(date), empId)); }
+function rangeMinutes(empId, dates) { return dates.reduce((t, d) => t + dayMinutes(empId, d), 0); }
+function weekMinutes(empId, monday) { return rangeMinutes(empId, weekDays(monday)); }
+
+/**
+ * Compare les heures au contrat.
+ * 'ok' (vert), 'under' (orange : il manque des heures), 'over' (rouge : dépassement), 'none' (pas de contrat)
+ */
+function contractStatus(worked, target) {
+  if (!(target > 0)) return 'none';
+  const diff = worked - target;
+  if (Math.abs(diff) <= state.settings.tolerance) return 'ok';
+  return diff < 0 ? 'under' : 'over';
+}
+
+/** Semaines (lundi → dimanche) qui touchent un mois, avec les jours qui sont dans ce mois */
+function monthWeeks(year, month) {
+  const last = new Date(year, month, daysInMonth(year, month));
+  const weeks = [];
+  for (let monday = startOfWeek(new Date(year, month, 1)); monday <= last; monday = addDays(monday, 7)) {
+    const days = weekDays(monday).filter(d => d.getMonth() === month && d.getFullYear() === year);
+    weeks.push({ monday, days, number: isoWeekNumber(monday), full: days.length === 7 });
+  }
+  return weeks;
+}
+
+/** Créneaux les plus utilisés (proposés en raccourcis dans la fenêtre d'édition) */
+function frequentShifts(limit) {
+  const counts = new Map();
+  for (const day of Object.values(state.planning)) {
+    for (const cell of Object.values(day)) {
+      if (cell.status !== 'travail') continue;
+      for (const s of cell.shifts) {
+        const k = `${s.start}|${s.end}`;
+        counts.set(k, (counts.get(k) || 0) + 1);
+      }
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit)
+    .map(([k]) => { const [start, end] = k.split('|'); return { start, end }; });
+}
+
+/** Vrai si des créneaux se chevauchent dans une même journée */
+function hasOverlap(shifts) {
+  const ranges = shifts
+    .filter(s => shiftMinutes(s) !== null)
+    .map(s => { const a = parseTime(s.start); return [a, a + shiftMinutes(s)]; })
+    .sort((x, y) => x[0] - y[0]);
+  for (let i = 1; i < ranges.length; i++) if (ranges[i][0] < ranges[i - 1][1]) return true;
+  return false;
+}
+
+/** Nombre de jours travaillés / de congé / maladie / absence sur une période */
+function countDays(empId, dates) {
+  const c = { travail: 0, repos: 0, conge: 0, absent: 0, maladie: 0 };
+  for (const d of dates) {
+    const cell = getCell(toKey(d), empId);
+    if (!cell) continue;
+    if (cell.status === 'travail') { if (cellMinutes(cell) > 0) c.travail++; }
+    else c[cell.status]++;
+  }
+  return c;
+}
+
+/* =====================================================================
+   5. RENDU
+   ===================================================================== */
+function render() {
+  renderNav();
+  if (ui.view === 'week') renderWeek(); else renderMonth();
+  renderBanners();
+  renderFooter();
+  renderPrintTitle();
+}
+
+function renderNav() {
+  $('#tab-week').setAttribute('aria-pressed', String(ui.view === 'week'));
+  $('#tab-month').setAttribute('aria-pressed', String(ui.view === 'month'));
+  $('#view-week').hidden = ui.view !== 'week';
+  $('#view-month').hidden = ui.view !== 'month';
+  $('#role-filter').value = ui.filter;
+  $('#btn-undo').disabled = undoStack.length === 0;
+}
+
+/** Indicateur « Enregistré à … » et bandeau d'erreur de sauvegarde */
+function renderSaveStatus() {
+  const el = $('#save-status');
+  if (storageInfo.ok) {
+    const t = storageInfo.lastSaved;
+    el.textContent = t
+      ? `Enregistré automatiquement à ${pad2(t.getHours())}:${pad2(t.getMinutes())}:${pad2(t.getSeconds())}`
+      : 'Enregistrement automatique activé';
+    el.classList.remove('err');
+  } else {
+    el.textContent = 'Non enregistré !';
+    el.classList.add('err');
+  }
+  $('#banner-storage').hidden = storageInfo.ok;
+  if (!storageInfo.ok) {
+    $('#banner-storage-msg').textContent = storageInfo.reason === 'full'
+      ? 'Attention : le stockage du navigateur est plein, vos dernières modifications ne sont PAS enregistrées. Exportez vos données pour ne rien perdre.'
+      : 'Attention : le stockage du navigateur est bloqué (navigation privée ou réglages du navigateur). Vos modifications ne sont PAS enregistrées et seront perdues à la fermeture. Exportez vos données.';
+  }
+}
+
+/** Rappel discret si aucun export depuis plus de 7 jours */
+function renderBanners() {
+  const reference = state.lastExport || state.createdAt;
+  const elapsed = Date.now() - Date.parse(reference);
+  const show = !ui.reminderDismissed && state.employees.length > 0 && elapsed > EXPORT_REMINDER_DAYS * MS_PER_DAY;
+  $('#banner-reminder').hidden = !show;
+  if (show) {
+    const days = Math.floor(elapsed / MS_PER_DAY);
+    $('#banner-reminder-msg').textContent = state.lastExport
+      ? `Dernier export il y a ${days} jours. Pensez à télécharger une sauvegarde de votre planning.`
+      : `Aucune sauvegarde exportée depuis ${days} jours. Pensez à télécharger une copie de votre planning.`;
+  }
+}
+
+function renderFooter() {
+  const last = state.lastExport ? `le ${fmtDateTime(state.lastExport)}` : 'jamais';
+  $('#footer-info').innerHTML =
+    `Les données sont enregistrées automatiquement <strong>dans ce navigateur, sur cet appareil</strong>. ` +
+    `Exportez régulièrement une sauvegarde. Dernier export : <strong>${last}</strong>.`;
+}
+
+function renderPrintTitle() {
+  const filter = ui.filter === 'all' ? '' : ` — ${roleLabel(ui.filter)}`;
+  const title = ui.view === 'week'
+    ? `Planning — semaine ${isoWeekNumber(weekStart())}, ${fmtWeekRange(weekStart())}${filter}`
+    : `Heures du mois — ${MONTHS[ui.month]} ${ui.year}${filter}`;
+  $('#print-title').innerHTML = `<strong>${escapeHtml(title)}</strong><span>Imprimé le ${fmtDayLong(today(), true)}</span>`;
+}
+
+/* ---------- Morceaux de tableau réutilisés ---------- */
+function fmtContract(c) { return c > 0 ? `${fmtNumber(c)} h/sem.` : 'sans contrat'; }
+
+function empButton(emp) {
+  return `<button type="button" class="emp-btn" data-edit-emp="${escapeHtml(emp.id)}" title="Modifier ${escapeHtml(emp.name)}">` +
+    `<span class="emp-dot"></span><span class="emp-text"><span class="emp-name">${escapeHtml(emp.name)}</span>` +
+    `<span class="emp-meta">${roleLabel(emp.role)} · <span class="nowrap">${fmtContract(emp.contract)}</span></span></span></button>`;
+}
+
+/** Case total avec couleur selon le contrat */
+function totalCell(worked, target) {
+  const c = contractStatus(worked, target);
+  let sub;
+  if (c === 'none') sub = 'sans contrat';
+  else if (c === 'ok') sub = `✓ ${fmtHours(target)}${worked !== target ? ` (${fmtDiff(worked - target)})` : ''}`;
+  else sub = `${fmtDiff(worked - target)} / ${fmtHours(target)}`;
+  const title = c === 'none' ? 'Aucun contrat renseigné' : `Prévu au contrat : ${fmtHours(target)} · écart : ${fmtDiff(worked - target)}`;
+  return `<td class="col-total cmp-${c}" title="${title}"><span class="tot">${fmtHours(worked)}</span><span class="tot-sub">${sub}</span></td>`;
+}
+
+/** Bouton d'une case du planning (créneaux, statut ou vide) */
+function cellButton(cell, dateKey, emp, date, minutes) {
+  let inner;
+  if (!cell) {
+    inner = '<span class="cell-empty" aria-hidden="true">+</span>';
+  } else if (cell.status !== 'travail') {
+    inner = `<span class="badge ds-${cell.status}">${statusLabel(cell.status)}</span>`;
+  } else {
+    inner = cell.shifts.map(s =>
+      `<span class="shift">${s.start}–${s.end}${crossesMidnight(s) ? '<sup title="Se termine le lendemain">+1</sup>' : ''}</span>`
+    ).join('') + `<span class="cell-sum">${fmtHours(minutes)}</span>`;
+  }
+  const label = `${emp.name}, ${fmtDayLong(date)} : ${!cell ? 'vide' : cell.status !== 'travail' ? statusLabel(cell.status) : fmtHours(minutes)}`;
+  return `<button type="button" class="cell-btn" data-cell="${dateKey}" data-emp="${escapeHtml(emp.id)}" aria-label="${escapeHtml(label)}">${inner}</button>`;
+}
+
+function emptyRow(colspan) {
+  const msg = state.employees.length ? 'Aucun salarié pour ce poste.' : 'Aucun salarié pour l’instant.';
+  return `<tr><td colspan="${colspan}" class="empty-row">${msg}<br>` +
+    `<button type="button" class="btn primary" data-action="add-employee">${icon('plus')}<span>Ajouter un salarié</span></button></td></tr>`;
+}
+
+/* ---------- Vue Semaine ---------- */
+function renderWeek() {
+  const monday = weekStart();
+  const days = weekDays(monday);
+  const emps = visibleEmployees();
+  const todayKey = toKey(today());
+
+  $('#week-label').innerHTML = `Semaine ${isoWeekNumber(monday)} <small>${fmtWeekRange(monday)}</small>`;
+  $('#week-date').value = toKey(ui.anchor);
+
+  // En-tête : un bouton par jour (copier / vider la journée)
+  let h = '<thead><tr><th scope="col" class="col-name">Salarié</th>';
+  days.forEach((d, i) => {
+    const key = toKey(d);
+    h += `<th scope="col" class="${key === todayKey ? 'is-today' : ''}">` +
+      `<button type="button" class="day-head" data-day="${key}" title="Copier ou vider la journée du ${fmtDayLong(d)}">` +
+      `<span class="dh-name">${DAY_SHORT[i]}</span><span class="dh-date">${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}</span>` +
+      `<span class="dh-icon">${icon('copy')}</span></button></th>`;
+  });
+  h += '<th scope="col" class="col-total plain">Total<span class="th-sub">semaine</span></th></tr></thead><tbody>';
+
+  // Une ligne par salarié
+  if (!emps.length) h += emptyRow(9);
+  const perDay = days.map(() => ({ minutes: 0, people: 0 }));
+  let weekTotal = 0, weekPeople = 0;
+  for (const emp of emps) {
+    let empTotal = 0;
+    h += `<tr style="${empStyle(emp)}"><th scope="row" class="col-name">${empButton(emp)}</th>`;
+    days.forEach((d, i) => {
+      const key = toKey(d);
+      const cell = getCell(key, emp.id);
+      const minutes = cellMinutes(cell);
+      empTotal += minutes;
+      if (minutes > 0) { perDay[i].minutes += minutes; perDay[i].people++; }
+      h += `<td class="cell${key === todayKey ? ' is-today' : ''}">${cellButton(cell, key, emp, d, minutes)}</td>`;
+    });
+    weekTotal += empTotal;
+    if (empTotal > 0) weekPeople++;
+    h += totalCell(empTotal, Math.round(emp.contract * 60)) + '</tr>';
+  }
+  h += '</tbody>';
+
+  // Lignes du bas : personnes présentes et heures par jour
+  if (emps.length) {
+    const todayCls = i => (toKey(days[i]) === todayKey ? ' class="is-today"' : '');
+    h += '<tfoot><tr><th scope="row" class="col-name">Présents</th>';
+    perDay.forEach((t, i) => { h += `<td${todayCls(i)}>${t.people} <span class="unit">pers.</span></td>`; });
+    h += `<td>${weekPeople} <span class="unit">pers.</span></td></tr>`;
+    h += '<tr><th scope="row" class="col-name">Heures</th>';
+    perDay.forEach((t, i) => { h += `<td${todayCls(i)}>${fmtHours(t.minutes)}</td>`; });
+    h += `<td>${fmtHours(weekTotal)}</td></tr></tfoot>`;
+  }
+  $('#week-table').innerHTML = h;
+}
+
+/* ---------- Vue Mois ---------- */
+function renderMonth() {
+  const { year, month } = ui;
+  const weeks = monthWeeks(year, month);
+  const days = monthDays(year, month);
+  const emps = visibleEmployees();
+
+  $('#month-select').value = String(month);
+  $('#year-input').value = String(year);
+  $('#month-label').innerHTML = `${capitalize(MONTHS[month])} ${year} <small>${days.length} jours · ${weeks.length} semaines</small>`;
+
+  let h = '<thead><tr><th scope="col" class="col-name">Salarié</th>' +
+    '<th scope="col" class="plain">Contrat<span class="th-sub">par semaine</span></th>';
+  for (const w of weeks) {
+    const a = w.days[0], b = w.days[w.days.length - 1];
+    const range = w.days.length === 1
+      ? `${a.getDate()} ${MONTHS_SHORT[a.getMonth()]}`
+      : `${a.getDate()}–${b.getDate()} ${MONTHS_SHORT[b.getMonth()]}`;
+    h += `<th scope="col"><button type="button" class="week-link" data-goto="${toKey(w.monday)}" title="Ouvrir la semaine ${w.number}">` +
+      `S${w.number}${w.full ? '' : '*'}<span class="th-sub">${range}</span></button></th>`;
+  }
+  h += '<th scope="col" class="col-total plain">Total<span class="th-sub">du mois</span></th>' +
+    '<th scope="col" class="plain">Base<span class="th-sub">contrat</span></th>' +
+    '<th scope="col" class="plain">Jours</th></tr></thead><tbody>';
+
+  if (!emps.length) h += emptyRow(weeks.length + 5);
+  const weekTotals = weeks.map(() => 0);
+  let monthTotal = 0, baseTotal = 0;
+  for (const emp of emps) {
+    const weekTarget = Math.round(emp.contract * 60);
+    h += `<tr style="${empStyle(emp)}"><th scope="row" class="col-name">${empButton(emp)}</th>` +
+      `<td>${emp.contract > 0 ? fmtNumber(emp.contract) + ' h' : '–'}</td>`;
+    weeks.forEach((w, i) => {
+      const minutes = rangeMinutes(emp.id, w.days);
+      weekTotals[i] += minutes;
+      if (w.full) {
+        const c = contractStatus(minutes, weekTarget);
+        const diff = c === 'under' || c === 'over' ? `<span class="tot-sub">${fmtDiff(minutes - weekTarget)}</span>` : '';
+        const title = c === 'none' ? '' : ` title="Contrat : ${fmtHours(weekTarget)} · écart : ${fmtDiff(minutes - weekTarget)}"`;
+        h += `<td class="wk cmp-${c}"${title}>${fmtHours(minutes)}${diff}</td>`;
+      } else {
+        const full = weekMinutes(emp.id, w.monday);
+        h += `<td class="wk partial" title="Semaine partielle : ${plural(w.days.length, 'jour')} dans ce mois. Semaine complète : ${fmtHours(full)}.">${fmtHours(minutes)}</td>`;
+      }
+    });
+    const total = rangeMinutes(emp.id, days);
+    const target = Math.round(emp.contract * 60 * days.length / 7);
+    monthTotal += total;
+    if (emp.contract > 0) baseTotal += target;
+    h += totalCell(total, target);
+    h += `<td>${emp.contract > 0 ? fmtHours(target) : '–'}</td>`;
+    const c = countDays(emp.id, days);
+    const tags = [['conge', 'congé'], ['maladie', 'maladie'], ['absent', 'absent']]
+      .filter(([k]) => c[k])
+      .map(([k, label]) => `<span class="mini ds-${k}">${c[k]} j ${label}</span>`).join(' ');
+    h += `<td class="days-cell"><strong>${c.travail}</strong> <span class="muted">j travaillé${c.travail > 1 ? 's' : ''}</span>${tags ? '<br>' + tags : ''}</td></tr>`;
+  }
+  h += '</tbody>';
+  if (emps.length) {
+    h += '<tfoot><tr><th scope="row" class="col-name">Total</th><td></td>';
+    weekTotals.forEach(t => { h += `<td>${fmtHours(t)}</td>`; });
+    h += `<td>${fmtHours(monthTotal)}</td><td>${fmtHours(baseTotal)}</td><td></td></tr></tfoot>`;
+  }
+  $('#month-table').innerHTML = h;
+}
+
+/* ---------- Liste des salariés (fenêtre « Salariés ») ---------- */
+function renderEmployeeList() {
+  const list = $('#emp-list');
+  if (!state.employees.length) {
+    list.innerHTML = '<li class="muted">Aucun salarié. Ajoutez-en un ci-dessous.</li>';
+    return;
+  }
+  const last = state.employees.length - 1;
+  list.innerHTML = state.employees.map((e, i) => {
+    const id = escapeHtml(e.id), name = escapeHtml(e.name);
+    return `<li class="emp-item" style="${empStyle(e)}">
+      <span class="emp-text"><strong class="emp-name">${name}</strong><span class="emp-meta">${roleLabel(e.role)} · ${fmtContract(e.contract)}</span></span>
+      <span class="emp-actions">
+        <button type="button" class="btn icon-btn" data-emp-move="-1" data-id="${id}" ${i === 0 ? 'disabled' : ''} aria-label="Monter ${name}" title="Monter">${icon('up')}</button>
+        <button type="button" class="btn icon-btn" data-emp-move="1" data-id="${id}" ${i === last ? 'disabled' : ''} aria-label="Descendre ${name}" title="Descendre">${icon('down')}</button>
+        <button type="button" class="btn" data-emp-edit data-id="${id}">${icon('edit')}<span>Modifier</span></button>
+        <button type="button" class="btn icon-btn danger" data-emp-del data-id="${id}" aria-label="Supprimer ${name}" title="Supprimer">${icon('trash')}</button>
+      </span></li>`;
+  }).join('');
+}
+
+/* =====================================================================
+   6. FENÊTRES
+   ===================================================================== */
+function showDialog(dlg) { if (!dlg.open) dlg.showModal(); }
+const isTouch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+
+/* ---------- Confirmation / message ---------- */
+function askConfirm({ title, message, ok = 'Confirmer', cancel = 'Annuler', danger = false }) {
+  const dlg = $('#dlg-confirm');
+  $('#confirm-title').textContent = title;
+  $('#confirm-msg').textContent = message;
+  const okBtn = $('#confirm-ok');
+  okBtn.textContent = ok;
+  okBtn.className = 'btn ' + (danger ? 'danger-fill' : 'primary');
+  const cancelBtn = $('#confirm-cancel');
+  cancelBtn.hidden = cancel === null;
+  cancelBtn.textContent = cancel || '';
+  dlg.returnValue = '';
+  return new Promise(resolve => {
+    dlg.addEventListener('close', () => resolve(dlg.returnValue === 'ok'), { once: true });
+    dlg.showModal();
+    (cancel === null ? okBtn : cancelBtn).focus();
+  });
+}
+function askAlert(title, message) { return askConfirm({ title, message, ok: 'OK', cancel: null }); }
+
+/* ---------- Notification temporaire ---------- */
+let toastTimer = null;
+function toast(message, options = {}) {
+  const el = $('#toast');
+  el.innerHTML = `<span>${escapeHtml(message)}</span>` +
+    (options.undo ? '<button type="button" class="toast-btn" data-action="undo">Annuler</button>' : '');
+  try { if (el.showPopover) { if (el.matches(':popover-open')) el.hidePopover(); el.showPopover(); } } catch (_) { /* ancien navigateur */ }
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(hideToast, options.undo ? 7000 : 4000);
+}
+function hideToast() {
+  const el = $('#toast');
+  el.classList.remove('show');
+  try { if (el.hidePopover && el.matches(':popover-open')) el.hidePopover(); } catch (_) { /* ancien navigateur */ }
+}
+
+/* ---------- Cases à cocher des jours (copie) ---------- */
+function renderDayChecks(container, sourceKey) {
+  const monday = startOfWeek(fromKey(sourceKey));
+  const blocks = [['Cette semaine', monday], ['Semaine suivante', addDays(monday, 7)]];
+  container.innerHTML = blocks.map(([label, m]) =>
+    `<div class="dc-week"><div class="dc-label">${label} · S${isoWeekNumber(m)}</div><div class="day-checks">` +
+    weekDays(m).map((d, i) => {
+      const k = toKey(d), isSource = k === sourceKey;
+      return `<label class="day-check${isSource ? ' is-source' : ''}" title="${isSource ? 'Jour d’origine' : capitalize(fmtDayLong(d, true))}">` +
+        `<input type="checkbox" value="${k}"${isSource ? ' disabled' : ''}><span>${DAY_SHORT[i]}</span><span class="dnum">${d.getDate()}</span></label>`;
+    }).join('') + '</div></div>'
+  ).join('');
+}
+function checkedDays(container) { return $$('input[type="checkbox"]:checked', container).map(i => i.value); }
+
+/* ---------- Fenêtre d'édition d'une case ----------
+   Les modifications sont appliquées et enregistrées EN DIRECT.
+   « Annuler les modifications » remet la case comme à l'ouverture. */
+const editor = {
+  key: null, empId: null,
+  status: 'travail',
+  draft: [],            // créneaux en cours de saisie (y compris incomplets)
+  startState: null,     // état complet à l'ouverture (pour « Annuler les modifications »)
+  pushed: 0,            // nombre d'étapes d'annulation ajoutées pendant l'édition
+  reverting: false,
+};
+
+function openCellEditor(dateKey, empId) {
+  const emp = findEmployee(empId);
+  if (!emp) return;
+  const cell = getCell(dateKey, empId);
+  editor.key = dateKey;
+  editor.empId = empId;
+  editor.status = cell ? cell.status : 'travail';
+  editor.draft = cell && cell.status === 'travail' ? clone(cell.shifts) : [];
+  if (!editor.draft.length) editor.draft.push({ start: '', end: '' });
+  editor.startState = JSON.stringify(state);
+  editor.pushed = 0;
+  editor.reverting = false;
+
+  const d = fromKey(dateKey);
+  $('#cell-dot').style.setProperty('--c', emp.color);
+  $('#cell-name').textContent = emp.name;
+  $('#cell-sub').textContent = `${capitalize(fmtDayLong(d, true))} · ${roleLabel(emp.role)}`;
+  renderDayChecks($('#cell-copy-days'), dateKey);
+  $('#cell-copy').open = false;
+  $('#cell-copy-msg').textContent = '';
+  renderEditor();
+  showDialog($('#dlg-cell'));
+}
+
+function renderEditor() {
+  $$('#cell-status button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.status === editor.status)));
+  const isWork = editor.status === 'travail';
+  $('#cell-work').hidden = !isWork;
+  const off = $('#cell-off');
+  off.hidden = isWork;
+  off.className = `off-msg ds-${editor.status}`;
+  off.textContent = isWork ? '' : `Journée marquée « ${statusLabel(editor.status)} » : aucune heure n’est comptée.`;
+  if (isWork) renderShiftRows();
+  renderChips();
+  updateEditorSummary();
+}
+
+function renderShiftRows() {
+  $('#cell-shifts').innerHTML = editor.draft.map((s, i) => `
+    <div class="shift-row" data-i="${i}">
+      <label class="sr-field"><span>Début</span><input type="time" data-field="start" value="${escapeHtml(s.start)}"></label>
+      <span class="sr-arrow" aria-hidden="true">→</span>
+      <label class="sr-field"><span>Fin</span><input type="time" data-field="end" value="${escapeHtml(s.end)}"></label>
+      <span class="sr-dur" data-dur></span>
+      <button type="button" class="btn icon-btn ghost danger" data-del-shift="${i}" aria-label="Supprimer ce créneau" title="Supprimer ce créneau">${icon('x')}</button>
+    </div>`).join('') || '<p class="muted">Aucun créneau.</p>';
+}
+
+function renderChips() {
+  const list = frequentShifts(8);
+  $('#cell-chips-wrap').hidden = !list.length;
+  $('#cell-chips').innerHTML = list.map(s =>
+    `<button type="button" class="chip" data-chip="${s.start}|${s.end}">${s.start}–${s.end}${crossesMidnight(s) ? ' (+1)' : ''}</button>`
+  ).join('');
+}
+
+/** Met à jour les durées, le total et les avertissements (sans reconstruire les champs) */
+function updateEditorSummary() {
+  const isWork = editor.status === 'travail';
+  let total = 0;
+  $$('#cell-shifts .shift-row').forEach(row => {
+    const s = editor.draft[Number(row.dataset.i)];
+    const minutes = shiftMinutes(s);
+    const incomplete = !s.start || !s.end;
+    row.classList.toggle('invalid', !incomplete && minutes === null);
+    const dur = row.querySelector('[data-dur]');
+    if (minutes !== null) {
+      total += minutes;
+      dur.innerHTML = fmtHours(minutes) + (crossesMidnight(s) ? ' <span class="next-day" title="Se termine le lendemain">+1 j</span>' : '');
+    } else {
+      dur.textContent = incomplete ? '—' : 'invalide';
+    }
+  });
+  $('#cell-total').textContent = isWork ? fmtHours(total) : '0h';
+
+  const warnings = [];
+  if (isWork) {
+    // (pas d'alerte « créneau incomplet » pendant la saisie : elle ferait bouger la fenêtre ;
+    //  un message s'affiche à la fermeture si un créneau est resté incomplet)
+    if (editor.draft.some(s => s.start && s.end && shiftMinutes(s) === null)) warnings.push('Début et fin identiques : ce créneau n’est pas compté.');
+    if (hasOverlap(editor.draft)) warnings.push('Des créneaux se chevauchent : les heures communes sont comptées deux fois.');
+  }
+  const w = $('#cell-warn');
+  w.hidden = !warnings.length;
+  w.innerHTML = warnings.map(t => `<div>⚠ ${escapeHtml(t)}</div>`).join('');
+}
+
+/** Case telle qu'elle doit être enregistrée d'après le formulaire */
+function editorCell() {
+  return normalizeCell(editor.status === 'travail'
+    ? { status: 'travail', shifts: editor.draft }
+    : { status: editor.status, shifts: [] });
+}
+
+/** Applique le formulaire aux données + sauvegarde immédiate. Retourne vrai si quelque chose a changé. */
+function commitEditor() {
+  const next = editorCell();
+  if (JSON.stringify(next) === JSON.stringify(getCell(editor.key, editor.empId))) return false;
+  if (editor.pushed === 0) { checkpoint(); editor.pushed++; }   // une seule étape « Annuler » par ouverture
+  setCell(editor.key, editor.empId, next);
+  commit();
+  return true;
+}
+
+function revertEditor() {
+  if (editor.pushed > 0) {
+    state = JSON.parse(editor.startState);
+    undoStack.length = Math.max(0, undoStack.length - editor.pushed);
+    editor.pushed = 0;
+    commit();
+    toast('Modifications annulées.');
+  }
+  editor.reverting = true;
+  $('#dlg-cell').close();
+}
+
+/* ---------- Fenêtre « journée » (copier / vider tout un jour) ---------- */
+let dayDialogKey = null;
+function openDayDialog(dateKey) {
+  dayDialogKey = dateKey;
+  const d = fromKey(dateKey);
+  const emps = visibleEmployees();
+  const people = emps.filter(e => dayMinutes(e.id, d) > 0).length;
+  const minutes = emps.reduce((t, e) => t + dayMinutes(e.id, d), 0);
+  $('#day-title').textContent = capitalize(fmtDayLong(d, true));
+  $('#day-sub').textContent = `${plural(people, 'personne présente', 'personnes présentes')} · ${fmtHours(minutes)}`;
+  $('#day-scope').textContent = ui.filter === 'all' ? 'tous les salariés' : `tous les salariés « ${roleLabel(ui.filter)} »`;
+  renderDayChecks($('#day-copy-days'), dateKey);
+  $('#day-error').hidden = true;
+  showDialog($('#dlg-day'));
+}
+
+/* ---------- Fenêtres « Salariés » et formulaire salarié ---------- */
+function openEmployees() {
+  renderEmployeeList();
+  $('#set-tolerance').value = state.settings.tolerance;
+  showDialog($('#dlg-employees'));
+}
+
+let empFormId = null;   // null = nouveau salarié
+function nextFreeColor() {
+  const used = new Set(state.employees.map(e => e.color.toLowerCase()));
+  return PALETTE.find(c => !used.has(c)) || PALETTE[state.employees.length % PALETTE.length];
+}
+function setFormColor(color) {
+  $('#empf-color').value = color;
+  $$('#empf-swatches .swatch').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.color === color.toLowerCase())));
+}
+function openEmployeeForm(id) {
+  const emp = id ? findEmployee(id) : null;
+  empFormId = emp ? emp.id : null;
+  $('#empf-title').textContent = emp ? 'Modifier le salarié' : 'Nouveau salarié';
+  $('#empf-submit').textContent = emp ? 'Valider' : 'Ajouter';
+  $('#empf-delete').hidden = !emp;
+  $('#empf-name').value = emp ? emp.name : '';
+  $('#empf-role').value = emp ? emp.role : 'salle';
+  $('#empf-contract').value = emp ? emp.contract : 35;
+  setFormColor(emp ? emp.color : nextFreeColor());
+  $('#empf-error').hidden = true;
+  showDialog($('#dlg-emp-form'));
+  if (!isTouch) $('#empf-name').focus();
+}
+function submitEmployeeForm() {
+  const name = $('#empf-name').value.trim();
+  const contract = parseFloat(String($('#empf-contract').value).replace(',', '.'));
+  let error = '';
+  if (!name) error = 'Indiquez un prénom.';
+  else if (!Number.isFinite(contract) || contract < 0 || contract > 80) error = 'Le contrat doit être un nombre d’heures entre 0 et 80.';
+  if (error) {
+    const el = $('#empf-error');
+    el.textContent = error;
+    el.hidden = false;
+    return;
+  }
+  const data = {
+    name: name.slice(0, 40),
+    role: ROLE_IDS.includes($('#empf-role').value) ? $('#empf-role').value : 'autre',
+    contract: Math.round(contract * 100) / 100,
+    color: /^#[0-9a-f]{6}$/i.test($('#empf-color').value) ? $('#empf-color').value.toLowerCase() : PALETTE[0],
+  };
+  checkpoint();
+  if (empFormId && findEmployee(empFormId)) Object.assign(findEmployee(empFormId), data);
+  else state.employees.push({ id: uid(), ...data });
+  commit();
+  renderEmployeeList();
+  $('#dlg-emp-form').close();
+  toast(empFormId ? `${data.name} : modifications enregistrées.` : `${data.name} a été ajouté(e).`);
+}
+
+/* =====================================================================
+   7. ACTIONS ET ÉVÉNEMENTS
+   ===================================================================== */
+async function deleteEmployee(id) {
+  const emp = findEmployee(id);
+  if (!emp) return;
+  const nbDays = Object.values(state.planning).filter(day => day[id]).length;
+  const ok = await askConfirm({
+    title: `Supprimer ${emp.name} ?`,
+    message: `${emp.name} et ${plural(nbDays, 'journée')} de planning seront supprimés.\n` +
+      'Vous pourrez revenir en arrière avec le bouton « Annuler » tant que la page reste ouverte.',
+    ok: 'Supprimer',
+    danger: true,
+  });
+  if (!ok) return;
+  checkpoint();
+  state.employees = state.employees.filter(e => e.id !== id);
+  for (const key of Object.keys(state.planning)) {
+    delete state.planning[key][id];
+    if (!Object.keys(state.planning[key]).length) delete state.planning[key];
+  }
+  commit();
+  renderEmployeeList();
+  if ($('#dlg-emp-form').open) $('#dlg-emp-form').close();
+  toast(`${emp.name} a été supprimé(e).`, { undo: true });
+}
+
+function moveEmployee(id, delta) {
+  const list = state.employees;
+  const i = list.findIndex(e => e.id === id), j = i + delta;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  checkpoint();
+  [list[i], list[j]] = [list[j], list[i]];
+  commit();
+  renderEmployeeList();
+}
+
+/** Copie toute la semaine affichée vers la semaine suivante */
+async function copyWeekToNext() {
+  const emps = visibleEmployees();
+  if (!emps.length) { toast('Aucun salarié à copier.'); return; }
+  const monday = weekStart(), next = addDays(monday, 7);
+  const nextHasData = weekDays(next).some(d => emps.some(e => getCell(toKey(d), e.id)));
+  if (nextHasData) {
+    const ok = await askConfirm({
+      title: 'Remplacer la semaine suivante ?',
+      message: `La semaine ${isoWeekNumber(next)} (${fmtWeekRange(next)}) contient déjà des horaires. ` +
+        'Ils seront remplacés par ceux de la semaine affichée.',
+      ok: 'Remplacer',
+      danger: true,
+    });
+    if (!ok) return;
+  }
+  checkpoint();
+  for (const d of weekDays(monday)) {
+    const from = toKey(d), to = toKey(addDays(d, 7));
+    for (const e of emps) setCell(to, e.id, clone(getCell(from, e.id)));
+  }
+  ui.anchor = addDays(ui.anchor, 7);
+  commit();
+  toast(`Semaine copiée vers la semaine ${isoWeekNumber(next)}.`, { undo: true });
+}
+
+async function clearWeek() {
+  const emps = visibleEmployees();
+  const days = weekDays(weekStart());
+  if (!days.some(d => emps.some(e => getCell(toKey(d), e.id)))) { toast('Cette semaine est déjà vide.'); return; }
+  const ok = await askConfirm({
+    title: 'Vider la semaine ?',
+    message: `Tous les créneaux et statuts de la semaine ${isoWeekNumber(weekStart())} seront supprimés` +
+      (ui.filter === 'all' ? '.' : ` (salariés « ${roleLabel(ui.filter)} » uniquement).`),
+    ok: 'Vider la semaine',
+    danger: true,
+  });
+  if (!ok) return;
+  checkpoint();
+  for (const d of days) for (const e of emps) setCell(toKey(d), e.id, null);
+  commit();
+  toast('Semaine vidée.', { undo: true });
+}
+
+async function copyDay() {
+  const targets = checkedDays($('#day-copy-days'));
+  if (!targets.length) {
+    const err = $('#day-error');
+    err.textContent = 'Cochez au moins un jour.';
+    err.hidden = false;
+    return;
+  }
+  const emps = visibleEmployees();
+  checkpoint();
+  for (const t of targets) for (const e of emps) setCell(t, e.id, clone(getCell(dayDialogKey, e.id)));
+  commit();
+  $('#dlg-day').close();
+  toast(`Journée copiée vers ${plural(targets.length, 'jour')}.`, { undo: true });
+}
+
+async function clearDay() {
+  const emps = visibleEmployees();
+  if (!emps.some(e => getCell(dayDialogKey, e.id))) { toast('Cette journée est déjà vide.'); return; }
+  $('#dlg-day').close();
+  const ok = await askConfirm({
+    title: 'Vider cette journée ?',
+    message: `Tous les créneaux et statuts du ${fmtDayLong(fromKey(dayDialogKey), true)} seront supprimés` +
+      (ui.filter === 'all' ? '.' : ` (salariés « ${roleLabel(ui.filter)} » uniquement).`),
+    ok: 'Vider',
+    danger: true,
+  });
+  if (!ok) return;
+  checkpoint();
+  for (const e of emps) setCell(dayDialogKey, e.id, null);
+  commit();
+  toast('Journée vidée.', { undo: true });
+}
+
+async function resetAll() {
+  const ok = await askConfirm({
+    title: 'Tout effacer ?',
+    message: 'Tous les salariés et tout le planning seront supprimés de ce navigateur.\n\n' +
+      'Conseil : exportez d’abord une sauvegarde. Le bouton « Annuler » permet aussi de revenir en arrière tant que la page reste ouverte.',
+    ok: 'Tout effacer',
+    danger: true,
+  });
+  if (!ok) return;
+  checkpoint();
+  const fresh = createEmptyState();
+  fresh.lastExport = state.lastExport;
+  fresh.settings = clone(state.settings);
+  state = fresh;
+  commit();
+  toast('Toutes les données ont été effacées.', { undo: true });
+}
+
+async function loadSample() {
+  const ok = await askConfirm({
+    title: 'Recharger les données d’exemple ?',
+    message: 'Vos salariés et votre planning actuels seront remplacés par 5 salariés fictifs et une semaine d’exemple.',
+    ok: 'Remplacer par l’exemple',
+    danger: true,
+  });
+  if (!ok) return;
+  checkpoint();
+  const sample = buildSampleState();
+  sample.lastExport = state.lastExport;
+  state = sample;
+  ui.anchor = today();
+  ui.view = 'week';
+  commit();
+  toast('Données d’exemple chargées.', { undo: true });
+}
+
+function dismissReminder() {
+  ui.reminderDismissed = true;
+  try { sessionStorage.setItem(REMINDER_KEY, '1'); } catch (_) { /* ignoré */ }
+  renderBanners();
+}
+
+function shiftMonth(delta) {
+  const d = new Date(ui.year, ui.month + delta, 1);
+  ui.month = d.getMonth();
+  ui.year = d.getFullYear();
+  render();
+}
+
+/** Boutons portant un attribut data-action="…" */
+function handleAction(action) {
+  switch (action) {
+    case 'view-week':
+      if (ui.view !== 'week') {
+        // On ouvre une semaine du mois qui était affiché
+        if (ui.anchor.getMonth() !== ui.month || ui.anchor.getFullYear() !== ui.year) {
+          const t = today();
+          ui.anchor = t.getMonth() === ui.month && t.getFullYear() === ui.year ? t : new Date(ui.year, ui.month, 1);
+        }
+        ui.view = 'week';
+      }
+      render();
+      break;
+    case 'view-month':
+      if (ui.view !== 'month') {
+        ui.month = ui.anchor.getMonth();
+        ui.year = ui.anchor.getFullYear();
+        ui.view = 'month';
+      }
+      render();
+      break;
+    case 'prev': ui.anchor = addDays(ui.anchor, -7); render(); break;
+    case 'next': ui.anchor = addDays(ui.anchor, 7); render(); break;
+    case 'today': ui.anchor = today(); render(); break;
+    case 'prev-month': shiftMonth(-1); break;
+    case 'next-month': shiftMonth(1); break;
+    case 'this-month': ui.month = today().getMonth(); ui.year = today().getFullYear(); render(); break;
+    case 'copy-week': copyWeekToNext(); break;
+    case 'clear-week': clearWeek(); break;
+    case 'employees': openEmployees(); break;
+    case 'add-employee': openEmployeeForm(null); break;
+    case 'undo': hideToast(); undo(); break;
+    case 'export': exportData(); break;
+    case 'import': $('#import-file').click(); break;
+    case 'print': window.print(); break;
+    case 'reset': resetAll(); break;
+    case 'load-sample': loadSample(); break;
+    case 'theme': toggleTheme(); break;
+    case 'dismiss-reminder': dismissReminder(); break;
+    case 'retry-save': if (saveState()) toast('Sauvegarde rétablie.'); break;
+  }
+}
+
+function bindEvents() {
+  /* Clics (délégation : un seul écouteur pour toute la page) */
+  document.addEventListener('click', e => {
+    const t = e.target;
+    const closeBtn = t.closest('[data-close]');
+    if (closeBtn) { closeBtn.closest('dialog').close(); return; }
+    const actionBtn = t.closest('[data-action]');
+    if (actionBtn) { handleAction(actionBtn.dataset.action); return; }
+    const cellBtn = t.closest('.cell-btn');
+    if (cellBtn) { openCellEditor(cellBtn.dataset.cell, cellBtn.dataset.emp); return; }
+    const dayBtn = t.closest('.day-head');
+    if (dayBtn) { openDayDialog(dayBtn.dataset.day); return; }
+    const empBtn = t.closest('[data-edit-emp]');
+    if (empBtn) { openEmployeeForm(empBtn.dataset.editEmp); return; }
+    const weekLink = t.closest('[data-goto]');
+    if (weekLink) { ui.anchor = fromKey(weekLink.dataset.goto); ui.view = 'week'; render(); window.scrollTo(0, 0); }
+  });
+
+  /* Fermer une fenêtre en cliquant à côté */
+  $$('dialog[data-backdrop-close]').forEach(dlg => {
+    let downOnBackdrop = false;
+    dlg.addEventListener('pointerdown', e => { downOnBackdrop = e.target === dlg; });
+    dlg.addEventListener('click', e => { if (e.target === dlg && downOnBackdrop) dlg.close(); });
+  });
+
+  /* Navigation */
+  $('#week-date').addEventListener('change', e => {
+    if (isDateKey(e.target.value)) { ui.anchor = fromKey(e.target.value); render(); }
+  });
+  $('#month-select').addEventListener('change', e => { ui.month = Number(e.target.value); render(); });
+  $('#year-input').addEventListener('change', e => {
+    const y = parseInt(e.target.value, 10);
+    if (y >= 2000 && y <= 2100) ui.year = y;
+    render();
+  });
+  $('#role-filter').addEventListener('change', e => { ui.filter = e.target.value; render(); });
+
+  /* Import d'un fichier */
+  $('#import-file').addEventListener('change', async e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';           // permet de réimporter le même fichier
+    if (!file) return;
+    try {
+      await importFromText(await readFileText(file), file.name);
+    } catch (_) {
+      askAlert('Import impossible', 'Le fichier n’a pas pu être lu.');
+    }
+  });
+
+  /* --- Fenêtre d'édition d'une case --- */
+  $('#cell-status').addEventListener('click', e => {
+    const b = e.target.closest('[data-status]');
+    if (!b) return;
+    editor.status = b.dataset.status;
+    if (editor.status === 'travail' && !editor.draft.length) editor.draft.push({ start: '', end: '' });
+    renderEditor();
+    commitEditor();
+  });
+  $('#cell-shifts').addEventListener('input', e => {
+    const input = e.target.closest('input[data-field]');
+    if (!input) return;
+    const i = Number(input.closest('.shift-row').dataset.i);
+    editor.draft[i][input.dataset.field] = input.value;
+    updateEditorSummary();
+    commitEditor();
+  });
+  $('#cell-shifts').addEventListener('click', e => {
+    const b = e.target.closest('[data-del-shift]');
+    if (!b) return;
+    editor.draft.splice(Number(b.dataset.delShift), 1);
+    renderShiftRows();
+    updateEditorSummary();
+    commitEditor();
+  });
+  $('#cell-add-shift').addEventListener('click', () => {
+    editor.draft.push({ start: '', end: '' });
+    renderShiftRows();
+    updateEditorSummary();
+    const inputs = $$('#cell-shifts input[data-field="start"]');
+    if (!isTouch && inputs.length) inputs[inputs.length - 1].focus();
+  });
+  $('#cell-chips').addEventListener('click', e => {
+    const b = e.target.closest('[data-chip]');
+    if (!b) return;
+    const [start, end] = b.dataset.chip.split('|');
+    const empty = editor.draft.findIndex(s => !s.start && !s.end);
+    if (empty >= 0) editor.draft[empty] = { start, end };
+    else editor.draft.push({ start, end });
+    renderShiftRows();
+    updateEditorSummary();
+    commitEditor();
+  });
+  $('#cell-copy-btn').addEventListener('click', () => {
+    const msg = $('#cell-copy-msg');
+    const targets = checkedDays($('#cell-copy-days'));
+    if (!targets.length) { msg.textContent = 'Cochez au moins un jour.'; msg.className = 'copy-msg err'; return; }
+    const cell = getCell(editor.key, editor.empId);
+    checkpoint();
+    editor.pushed++;
+    for (const t of targets) setCell(t, editor.empId, clone(cell));
+    commit();
+    $$('#cell-copy-days input:checked').forEach(i => { i.checked = false; });
+    msg.textContent = `✓ Copié vers ${plural(targets.length, 'jour')}.`;
+    msg.className = 'copy-msg';
+  });
+  $('#cell-clear').addEventListener('click', () => {
+    editor.status = 'travail';
+    editor.draft = [{ start: '', end: '' }];
+    const changed = commitEditor();
+    $('#dlg-cell').close();
+    toast('Case vidée.', { undo: changed });
+  });
+  $('#cell-revert').addEventListener('click', revertEditor);
+  $('#dlg-cell').addEventListener('close', () => {
+    if (editor.reverting) return;
+    const ignored = editor.status === 'travail' && editor.draft.some(s => (s.start || s.end) && shiftMinutes(s) === null);
+    if (ignored) toast('Un créneau incomplet ou invalide n’a pas été pris en compte.');
+  });
+
+  /* --- Fenêtre « journée » --- */
+  $('#day-copy-btn').addEventListener('click', copyDay);
+  $('#day-clear').addEventListener('click', clearDay);
+
+  /* --- Fenêtre « Salariés » --- */
+  $('#emp-list').addEventListener('click', e => {
+    const b = e.target.closest('button[data-id]');
+    if (!b) return;
+    const id = b.dataset.id;
+    if (b.hasAttribute('data-emp-move')) moveEmployee(id, Number(b.dataset.empMove));
+    else if (b.hasAttribute('data-emp-edit')) openEmployeeForm(id);
+    else if (b.hasAttribute('data-emp-del')) deleteEmployee(id);
+  });
+  $('#set-tolerance').addEventListener('input', e => {
+    const v = parseInt(e.target.value, 10);
+    if (!Number.isFinite(v) || v < 0 || v > 600) return;
+    state.settings.tolerance = v;
+    commit();
+  });
+
+  /* --- Formulaire salarié --- */
+  $('#emp-form').addEventListener('submit', e => { e.preventDefault(); submitEmployeeForm(); });
+  $('#empf-swatches').addEventListener('click', e => {
+    const b = e.target.closest('[data-color]');
+    if (b) setFormColor(b.dataset.color);
+  });
+  $('#empf-color').addEventListener('input', e => setFormColor(e.target.value));
+  $('#empf-delete').addEventListener('click', () => { if (empFormId) deleteEmployee(empFormId); });
+
+  /* Ctrl+Z (ou Cmd+Z) = Annuler, hors champs de saisie et fenêtres */
+  document.addEventListener('keydown', e => {
+    if (!(e.ctrlKey || e.metaKey) || e.shiftKey || e.altKey || e.key.toLowerCase() !== 'z') return;
+    if (document.querySelector('dialog[open]') || /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName)) return;
+    e.preventDefault();
+    undo();
+  });
+
+  /* Données modifiées dans un autre onglet : on recharge pour ne pas écraser son travail */
+  window.addEventListener('storage', e => {
+    if (e.key === THEME_KEY && (e.newValue === 'dark' || e.newValue === 'light')) { applyTheme(e.newValue); return; }
+    if (e.key !== STORAGE_KEY || e.newValue === null) return;
+    try {
+      state = normalizeState(JSON.parse(e.newValue));
+      undoStack = [];
+      $$('dialog[open]').forEach(d => d.close());
+      render();
+      toast('Planning mis à jour depuis un autre onglet.');
+    } catch (_) { /* ignoré */ }
+  });
+
+  /* Mise à jour du titre juste avant l'impression */
+  window.addEventListener('beforeprint', renderPrintTitle);
+}
+
+/* =====================================================================
+   8. DÉMARRAGE
+   ===================================================================== */
+function buildStaticUI() {
+  // Icônes des éléments qui portent data-icon="…"
+  $$('[data-icon]').forEach(el => el.insertAdjacentHTML('afterbegin', icon(el.dataset.icon)));
+  // Listes déroulantes
+  $('#role-filter').innerHTML = '<option value="all">Tous les postes</option>' +
+    ROLES.map(r => `<option value="${r.id}">${r.label}</option>`).join('');
+  $('#empf-role').innerHTML = ROLES.map(r => `<option value="${r.id}">${r.label}</option>`).join('');
+  $('#month-select').innerHTML = MONTHS.map((m, i) => `<option value="${i}">${capitalize(m)}</option>`).join('');
+  $('#empf-swatches').innerHTML = PALETTE.map(c =>
+    `<button type="button" class="swatch" style="--sw:${c}" data-color="${c}" aria-label="Couleur ${c}" aria-pressed="false"></button>`
+  ).join('');
+}
+
+function init() {
+  buildStaticUI();
+  applyTheme(currentTheme());
+
+  let message = '';
+  const loaded = loadFromStorage();
+  if (loaded.status === 'ok') {
+    state = loaded.data;
+  } else if (loaded.status === 'empty') {
+    // Premier lancement : données d'exemple
+    state = buildSampleState();
+    saveState();
+    message = 'Bienvenue ! Voici un exemple. Utilisez « Tout effacer » (en bas) pour repartir de zéro.';
+  } else if (loaded.status === 'corrupted') {
+    state = createEmptyState();
+    saveState();
+    message = 'Les données enregistrées étaient illisibles : une copie a été conservée et le planning repart de zéro. Importez une sauvegarde si besoin.';
+  } else {
+    // Stockage bloqué : l'application fonctionne, mais rien n'est enregistré (bandeau rouge)
+    state = buildSampleState();
+    storageInfo.ok = false;
+    storageInfo.reason = 'blocked';
+  }
+
+  try { ui.reminderDismissed = sessionStorage.getItem(REMINDER_KEY) === '1'; } catch (_) { /* ignoré */ }
+  bindEvents();
+  renderSaveStatus();
+  render();
+  if (message) toast(message);
+}
+
+init();
+</script>
+</body>
+</html>
