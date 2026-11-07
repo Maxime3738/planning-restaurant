@@ -459,6 +459,20 @@ input[type="color"] {
   border: 1px solid var(--border-strong); border-radius: 10px; background: var(--surface);
 }
 .form-error { margin: 0; font-size: .88rem; font-weight: 650; color: var(--danger); }
+
+/* Fenêtre « Exporter » */
+.export-label { margin: 16px 0 8px; font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.export-label:first-child { margin-top: 0; }
+.export-choice {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; min-height: 64px; padding: 10px 14px; margin-bottom: 8px;
+  border: 1px solid var(--border-strong); border-radius: 14px; background: var(--surface);
+  color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.export-choice:hover { border-color: var(--primary); background: var(--primary-soft); }
+.export-choice > .ico { width: 26px; height: 26px; color: var(--primary); }
+.export-choice strong { display: block; font-size: 1rem; }
+.export-choice small { display: block; margin-top: 2px; font-size: .84rem; color: var(--muted); }
 .confirm-msg { margin: 0; white-space: pre-line; }
 
 /* Notification temporaire (en bas de l'écran) */
@@ -605,9 +619,9 @@ input[type="color"] {
     <span class="spacer"></span>
     <button type="button" class="btn" data-action="employees" data-icon="users"><span>Salariés</span></button>
     <button type="button" class="btn" id="btn-undo" data-action="undo" data-icon="undo" title="Annuler la dernière modification (Ctrl+Z)" disabled><span>Annuler</span></button>
-    <button type="button" class="btn" data-action="export" data-icon="download" title="Télécharger une sauvegarde (fichier JSON)"><span>Exporter</span></button>
+    <button type="button" class="btn" data-action="export-menu" data-icon="download" title="Télécharger le planning en PDF ou une sauvegarde"><span>Exporter</span></button>
     <button type="button" class="btn" data-action="import" data-icon="upload" title="Recharger une sauvegarde (fichier JSON)"><span>Importer</span></button>
-    <button type="button" class="btn" data-action="print" data-icon="printer"><span>Imprimer / PDF</span></button>
+    <button type="button" class="btn" data-action="print" data-icon="printer"><span>Imprimer</span></button>
   </nav>
 
   <!-- Titre visible uniquement à l'impression -->
@@ -814,6 +828,29 @@ input[type="color"] {
   </form>
 </dialog>
 
+<!-- ============ FENÊTRE : EXPORTER (PDF ou sauvegarde) ============ -->
+<dialog id="dlg-export" class="dlg dlg-sm" data-backdrop-close aria-labelledby="export-title">
+  <div class="dlg-inner">
+    <div class="dlg-head">
+      <h2 class="dlg-title" id="export-title">Exporter</h2>
+      <button type="button" class="btn icon-btn ghost" data-close data-icon="x" aria-label="Fermer"></button>
+    </div>
+    <div class="dlg-body">
+      <div class="export-label">Document PDF : à imprimer, envoyer ou afficher</div>
+      <button type="button" class="export-choice" id="export-pdf-week" data-icon="calendar">
+        <span><strong id="export-week-label">Planning de la semaine</strong><small id="export-week-sub"></small></span>
+      </button>
+      <button type="button" class="export-choice" id="export-pdf-month" data-icon="chart">
+        <span><strong id="export-month-label">Heures du mois</strong><small id="export-month-sub"></small></span>
+      </button>
+      <div class="export-label">Sauvegarde des données</div>
+      <button type="button" class="export-choice" id="export-json" data-icon="save">
+        <span><strong>Sauvegarde complète (.json)</strong><small>À garder en lieu sûr : permet de tout récupérer avec « Importer » (le PDF, lui, ne peut pas être réimporté).</small></span>
+      </button>
+    </div>
+  </div>
+</dialog>
+
 <input type="file" id="import-file" accept=".json,application/json" hidden>
 <div id="toast" class="toast" popover="manual" role="status" aria-live="polite"></div>
 
@@ -826,6 +863,7 @@ input[type="color"] {
      2. État (les données et l'affichage en cours)
      3. Stockage (localStorage, export, import, thème)
      4. Calculs (heures, comparaison au contrat, semaines du mois)
+     4 bis. Export PDF (générateur intégré, sans bibliothèque)
      5. Rendu (affichage des tableaux)
      6. Fenêtres (case, journée, salariés, confirmation, notifications)
      7. Actions (copier, vider, effacer…) et événements
@@ -912,6 +950,7 @@ const ICONS = {
   'down': '<path d="M12 5v14M19 12l-7 7-7-7"/>',
   'alert': '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>',
   'save': '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>',
+  'chart': '<path d="M3 3v18h18"/><path d="M8 16v-3M12 16V9M16 16V6"/>',
 };
 function icon(name) {
   return `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true" focusable="false">${ICONS[name] || ''}</svg>`;
@@ -1286,14 +1325,15 @@ function buildExportPayload(now) {
 function exportData() {
   const now = new Date();
   const fileName = `planning-restaurant-${toKey(now)}.json`;
-  downloadTextFile(fileName, JSON.stringify(buildExportPayload(now), null, 2));
+  downloadFile(fileName, JSON.stringify(buildExportPayload(now), null, 2), 'application/json');
   state.lastExport = now.toISOString();
   commit();
   toast(`Sauvegarde téléchargée : ${fileName}`);
 }
 
-function downloadTextFile(fileName, text) {
-  const blob = new Blob([text], { type: 'application/json' });
+/** Télécharge un fichier (texte ou octets) généré dans la page */
+function downloadFile(fileName, data, type) {
+  const blob = new Blob([data], { type });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -1437,6 +1477,416 @@ function countDays(empId, dates) {
     else c[cell.status]++;
   }
   return c;
+}
+
+/* =====================================================================
+   4 bis. EXPORT PDF
+   Petit générateur PDF intégré (aucune bibliothèque externe) :
+   polices standard Helvetica / Helvetica-Bold, encodage WinAnsi
+   (les accents français sont pris en charge), A4 paysage.
+   ===================================================================== */
+
+/* Caractères hors Latin-1 disponibles dans l'encodage WinAnsi */
+const WINANSI_EXTRA = {
+  '€': 0x80, '‚': 0x82, '„': 0x84, '…': 0x85, 'Œ': 0x8C, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94,
+  '•': 0x95, '–': 0x96, '—': 0x97, '™': 0x99, 'œ': 0x9C, 'Ÿ': 0x9F,
+  '−': 0x96,   // signe moins -> tiret demi-cadratin
+  ' ': 0x20, // espace fine -> espace
+};
+/** Texte JS -> chaîne PDF (un octet par caractère, parenthèses échappées) */
+function pdfEncode(str) {
+  let out = '';
+  for (const ch of String(str)) {
+    const code = ch.codePointAt(0);
+    let byte;
+    if ((code >= 32 && code < 127) || (code >= 0xA0 && code <= 0xFF)) byte = code;
+    else if (ch in WINANSI_EXTRA) byte = WINANSI_EXTRA[ch];
+    else byte = 0x3F; // « ? » pour un caractère impossible à afficher
+    const c = String.fromCharCode(byte);
+    out += (c === '(' || c === ')' || c === '\\') ? '\\' + c : c;
+  }
+  return out;
+}
+
+/* Mesure de la largeur d'un texte (Arial a les mêmes largeurs qu'Helvetica) */
+const measureCtx = document.createElement('canvas').getContext('2d');
+function pdfTextWidth(str, size, bold) {
+  measureCtx.font = `${bold ? 'bold ' : ''}${size}px Helvetica, Arial, sans-serif`;
+  return measureCtx.measureText(str).width;
+}
+/** Raccourcit un texte avec « … » pour qu'il tienne dans maxWidth */
+function pdfFit(str, maxWidth, size, bold) {
+  let s = String(str);
+  if (pdfTextWidth(s, size, bold) <= maxWidth) return s;
+  while (s.length > 1 && pdfTextWidth(s + '…', size, bold) > maxWidth) s = s.slice(0, -1);
+  return s.trimEnd() + '…';
+}
+/** Couleur éclaircie (mélange avec du blanc), le PDF simple n'ayant pas de transparence */
+function pdfTint(hex, alpha) {
+  const [r, g, b] = hexToRgb(hex).split(',').map(Number);
+  const mix = v => Math.round(v * alpha + 255 * (1 - alpha)).toString(16).padStart(2, '0');
+  return `#${mix(r)}${mix(g)}${mix(b)}`;
+}
+
+/** Document PDF : coordonnées en points, origine en HAUT à gauche (converties en interne) */
+class PdfDoc {
+  constructor(width, height) {
+    this.w = width;
+    this.h = height;
+    this.pages = [];
+    this.addPage();
+  }
+  addPage() { this.ops = []; this.pages.push(this.ops); }
+  static color(hex) {
+    return hexToRgb(hex).split(',').map(n => (Number(n) / 255).toFixed(3)).join(' ');
+  }
+  /** Rectangle plein (fill) et/ou bordé (stroke) */
+  rect(x, y, w, h, fill, stroke, lineWidth = 0.5) {
+    let op = '';
+    if (fill) op += `${PdfDoc.color(fill)} rg `;
+    if (stroke) op += `${PdfDoc.color(stroke)} RG ${lineWidth} w `;
+    op += `${x.toFixed(2)} ${(this.h - y - h).toFixed(2)} ${w.toFixed(2)} ${h.toFixed(2)} re ${fill && stroke ? 'B' : fill ? 'f' : 'S'}`;
+    this.ops.push(op);
+  }
+  line(x1, y1, x2, y2, color, lineWidth = 0.5) {
+    this.ops.push(`${PdfDoc.color(color)} RG ${lineWidth} w ${x1.toFixed(2)} ${(this.h - y1).toFixed(2)} m ${x2.toFixed(2)} ${(this.h - y2).toFixed(2)} l S`);
+  }
+  /** Coche ✓ dessinée (y = ligne de base, s = taille) */
+  check(x, y, s, color) {
+    const p = (px, py) => `${px.toFixed(2)} ${(this.h - py).toFixed(2)}`;
+    this.ops.push(`q ${PdfDoc.color(color)} RG 1.2 w 1 J 1 j ${p(x, y - s * 0.45)} m ${p(x + s * 0.38, y - s * 0.08)} l ${p(x + s, y - s * 0.9)} l S Q`);
+  }
+  /** Texte (y = ligne de base). Options : size, bold, color, align ('left'|'center'|'right'), maxWidth. Retourne la largeur. */
+  text(x, y, str, o = {}) {
+    const size = o.size || 9, bold = !!o.bold;
+    const s = o.maxWidth ? pdfFit(str, o.maxWidth, size, bold) : String(str);
+    const width = pdfTextWidth(s, size, bold);
+    const left = o.align === 'center' ? x - width / 2 : o.align === 'right' ? x - width : x;
+    this.ops.push(`BT /${bold ? 'F2' : 'F1'} ${size} Tf ${PdfDoc.color(o.color || '#1b2130')} rg ${left.toFixed(2)} ${(this.h - y).toFixed(2)} Td (${pdfEncode(s)}) Tj ET`);
+    return width;
+  }
+  /** Assemble le fichier PDF et retourne ses octets */
+  output(title) {
+    const objects = [];
+    const add = body => { objects.push(body); return objects.length; };
+    const catalogId = add('');
+    const pagesId = add('');
+    const fontId = add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+    const boldId = add('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+    const kids = this.pages.map(ops => {
+      const content = ops.join('\n');
+      const contentId = add(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+      return add(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${this.w} ${this.h}] ` +
+        `/Resources << /Font << /F1 ${fontId} 0 R /F2 ${boldId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+    });
+    objects[catalogId - 1] = `<< /Type /Catalog /Pages ${pagesId} 0 R >>`;
+    objects[pagesId - 1] = `<< /Type /Pages /Kids [${kids.map(k => `${k} 0 R`).join(' ')}] /Count ${kids.length} >>`;
+    const infoId = add(`<< /Title (${pdfEncode(title)}) /Producer (Planning du restaurant) >>`);
+
+    let out = '%PDF-1.4\n%\xE2\xE3\xCF\xD3\n';
+    const offsets = objects.map((body, i) => {
+      const offset = out.length;
+      out += `${i + 1} 0 obj\n${body}\nendobj\n`;
+      return offset;
+    });
+    const xref = out.length;
+    out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n` +
+      offsets.map(o => `${String(o).padStart(10, '0')} 00000 n \n`).join('') +
+      `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R /Info ${infoId} 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+    const bytes = new Uint8Array(out.length);
+    for (let i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i) & 0xFF;
+    return bytes;
+  }
+}
+
+/* Couleurs du PDF (toujours en thème clair) : [fond, texte] */
+const PDF_COLORS = {
+  text: '#1b2130', muted: '#5f6b7e', border: '#c9d0d9', head: '#eef1f5', foot: '#f6f7fa',
+  ok: ['#dff4e5', '#17733a'], under: ['#ffefd2', '#965000'], over: ['#fde2e2', '#b91f26'], none: ['#ffffff', '#5f6b7e'],
+  repos: ['#eceff3', '#4b5563'], conge: ['#dff1fc', '#075985'], absent: ['#fdefd2', '#8a3c0b'], maladie: ['#f1e6fd', '#6b21a8'],
+};
+const PDF_W = 841.89, PDF_H = 595.28, PDF_MARGIN = 28;   // A4 paysage, en points
+
+/** « de novembre », « d’avril », « d’août », « d’octobre » */
+function deMois(month) { return /^[aeiou]/.test(MONTHS[month]) ? `d’${MONTHS[month]}` : `de ${MONTHS[month]}`; }
+function asciiFileName(s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w.-]+/g, '-'); }
+
+/** En-tête de page commun : titre à gauche, date d'édition à droite */
+function pdfTitle(doc, title) {
+  doc.text(PDF_MARGIN, PDF_MARGIN + 13, title, { size: 14, bold: true, maxWidth: doc.w - 2 * PDF_MARGIN - 150 });
+  doc.text(doc.w - PDF_MARGIN, PDF_MARGIN + 13, `Édité le ${fmtDayLong(today(), true)}`, { size: 8, color: PDF_COLORS.muted, align: 'right' });
+  return PDF_MARGIN + 24;
+}
+
+/** Case « total » colorée selon le contrat (comme à l'écran) */
+function pdfTotalCell(doc, x, y, w, h, worked, target) {
+  const C = PDF_COLORS;
+  const c = contractStatus(worked, target);
+  const [bg, fg] = C[c];
+  doc.rect(x, y, w, h, bg, C.border);
+  const cx = x + w / 2, base = y + h / 2 + 1;
+  doc.text(cx, base, fmtHours(worked), { size: 11, bold: true, color: c === 'none' ? C.text : fg, align: 'center' });
+  if (c === 'ok') {
+    const label = fmtHours(target);
+    const width = pdfTextWidth(label, 7, true) + 9;
+    doc.check(cx - width / 2, base + 10.5, 6, fg);
+    doc.text(cx - width / 2 + 9, base + 10.5, label, { size: 7, bold: true, color: fg });
+  } else {
+    const sub = c === 'none' ? 'sans contrat' : `${fmtDiff(worked - target)} / ${fmtHours(target)}`;
+    doc.text(cx, base + 10.5, sub, { size: 7, bold: true, color: fg, align: 'center', maxWidth: w - 6 });
+  }
+}
+
+/** Légende des couleurs en bas de page */
+function pdfLegend(doc, y, extra) {
+  const C = PDF_COLORS;
+  let x = PDF_MARGIN;
+  for (const [key, label] of [['ok', 'Contrat respecté'], ['under', 'Heures manquantes'], ['over', 'Dépassement']]) {
+    doc.rect(x, y - 7, 9, 9, C[key][0], C[key][1], 0.8);
+    x += 13;
+    x += doc.text(x, y, label, { size: 7.5, color: C.muted }) + 16;
+  }
+  if (extra) doc.text(x, y, extra, { size: 7.5, color: C.muted, maxWidth: doc.w - PDF_MARGIN - x });
+}
+
+/** Numéros de page (seulement s'il y a plusieurs pages) */
+function pdfPageNumbers(doc) {
+  const n = doc.pages.length;
+  if (n < 2) return;
+  const current = doc.ops;
+  doc.pages.forEach((ops, i) => {
+    doc.ops = ops;
+    doc.text(doc.w - PDF_MARGIN, doc.h - 12, `Page ${i + 1} / ${n}`, { size: 7.5, color: PDF_COLORS.muted, align: 'right' });
+  });
+  doc.ops = current;
+}
+
+/** PDF du planning de la semaine affichée */
+function buildWeekPdf() {
+  const C = PDF_COLORS, M = PDF_MARGIN;
+  const doc = new PdfDoc(PDF_W, PDF_H);
+  const monday = weekStart(), days = weekDays(monday), emps = visibleEmployees();
+  const W = doc.w - 2 * M, nameW = 130, totalW = 74, dayW = (W - nameW - totalW) / 7;
+  const colX = i => M + nameW + i * dayW;            // i = 0 (lundi) … 6 ; 7 = colonne Total
+  const scope = ui.filter === 'all' ? '' : ` — ${roleLabel(ui.filter)}`;
+  const title = `Planning — semaine ${isoWeekNumber(monday)}, ${fmtWeekRange(monday)}${scope}`;
+  const bottom = doc.h - M - 24;
+  let y;
+
+  const pageHeader = () => {
+    y = pdfTitle(doc, title);
+    const hh = 30;
+    doc.rect(M, y, W, hh, C.head, C.border);
+    doc.text(M + 10, y + 18, 'Salarié', { size: 8.5, bold: true, color: C.muted });
+    days.forEach((d, i) => {
+      const cx = colX(i) + dayW / 2;
+      doc.line(colX(i), y, colX(i), y + hh, C.border);
+      doc.text(cx, y + 13, capitalize(DAY_NAMES[i]), { size: 9, bold: true, align: 'center' });
+      doc.text(cx, y + 24, `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`, { size: 7.5, color: C.muted, align: 'center' });
+    });
+    doc.line(colX(7), y, colX(7), y + hh, C.border);
+    doc.text(colX(7) + totalW / 2, y + 13, 'Total', { size: 9, bold: true, align: 'center' });
+    doc.text(colX(7) + totalW / 2, y + 24, 'semaine', { size: 7.5, color: C.muted, align: 'center' });
+    y += hh;
+  };
+  pageHeader();
+  if (!emps.length) doc.text(M + 10, y + 20, 'Aucun salarié.', { size: 9, color: C.muted });
+
+  const perDay = days.map(() => ({ minutes: 0, people: 0 }));
+  let weekTotal = 0, weekPeople = 0;
+  for (const emp of emps) {
+    const cells = days.map(d => getCell(toKey(d), emp.id));
+    const lines = Math.max(1, ...cells.map(c => (!c ? 0 : c.status !== 'travail' ? 1 : c.shifts.length)));
+    const hasSum = cells.some(c => c && c.status === 'travail');
+    const rowH = Math.max(36, 6 + lines * 15 + (hasSum ? 11 : 0) + 2);
+    if (y + rowH > bottom) { doc.addPage(); pageHeader(); }
+
+    doc.rect(M, y, W, rowH, null, C.border);
+    doc.rect(M, y, 4, rowH, emp.color);
+    doc.text(M + 10, y + 15, emp.name, { size: 9.5, bold: true, maxWidth: nameW - 14 });
+    doc.text(M + 10, y + 26, `${roleLabel(emp.role)} · ${fmtContract(emp.contract)}`, { size: 7.5, color: C.muted, maxWidth: nameW - 14 });
+
+    let empTotal = 0;
+    cells.forEach((cell, i) => {
+      const x = colX(i);
+      doc.line(x, y, x, y + rowH, C.border);
+      const minutes = cellMinutes(cell);
+      empTotal += minutes;
+      if (minutes > 0) { perDay[i].minutes += minutes; perDay[i].people++; }
+      if (!cell) return;
+      if (cell.status !== 'travail') {
+        const [bg, fg] = C[cell.status];
+        const bh = 18, by = y + (rowH - bh) / 2;
+        doc.rect(x + 4, by, dayW - 8, bh, bg);
+        doc.text(x + dayW / 2, by + 12, statusLabel(cell.status), { size: 8.5, bold: true, color: fg, align: 'center' });
+        return;
+      }
+      cell.shifts.forEach((s, k) => {
+        const sy = y + 5 + k * 15;
+        doc.rect(x + 4, sy, dayW - 8, 13, pdfTint(emp.color, 0.18));
+        doc.rect(x + 4, sy, 2, 13, emp.color);
+        const width = doc.text(x + 10, sy + 9.3, `${s.start}–${s.end}`, { size: 8, bold: true });
+        if (crossesMidnight(s)) doc.text(x + 11.5 + width, sy + 6.5, '+1', { size: 5.5, bold: true, color: C.muted });
+      });
+      doc.text(x + dayW - 5, y + rowH - 5, fmtHours(minutes), { size: 7, bold: true, color: C.muted, align: 'right' });
+    });
+    weekTotal += empTotal;
+    if (empTotal > 0) weekPeople++;
+    pdfTotalCell(doc, colX(7), y, totalW, rowH, empTotal, Math.round(emp.contract * 60));
+    y += rowH;
+  }
+
+  // Lignes du bas : présents et heures par jour
+  if (emps.length) {
+    const fh = 20;
+    if (y + 2 * fh > bottom) { doc.addPage(); pageHeader(); }
+    const rows = [
+      ['Présents', perDay.map(t => `${t.people} pers.`), `${weekPeople} pers.`],
+      ['Heures', perDay.map(t => fmtHours(t.minutes)), fmtHours(weekTotal)],
+    ];
+    for (const [label, values, total] of rows) {
+      doc.rect(M, y, W, fh, C.foot, C.border);
+      doc.text(M + 10, y + 13.5, label, { size: 8.5, bold: true });
+      values.forEach((v, i) => {
+        doc.line(colX(i), y, colX(i), y + fh, C.border);
+        doc.text(colX(i) + dayW / 2, y + 13.5, v, { size: 8.5, bold: true, align: 'center' });
+      });
+      doc.line(colX(7), y, colX(7), y + fh, C.border);
+      doc.text(colX(7) + totalW / 2, y + 13.5, total, { size: 8.5, bold: true, align: 'center' });
+      y += fh;
+    }
+  }
+  pdfLegend(doc, y + 16, '+1 : se termine le lendemain (compté sur le jour de début)');
+  pdfPageNumbers(doc);
+  const weekYear = addDays(monday, 3).getFullYear();
+  return { doc, title, fileName: `planning-semaine-${isoWeekNumber(monday)}-${weekYear}.pdf` };
+}
+
+/** PDF des heures d'un mois */
+function buildMonthPdf(year, month) {
+  const C = PDF_COLORS, M = PDF_MARGIN;
+  const doc = new PdfDoc(PDF_W, PDF_H);
+  const weeks = monthWeeks(year, month), days = monthDays(year, month), emps = visibleEmployees();
+  const W = doc.w - 2 * M;
+  const nameW = 130, contractW = 50, totalW = 84, baseW = 56, daysW = 106;
+  const wkW = (W - nameW - contractW - totalW - baseW - daysW) / weeks.length;
+  const xContract = M + nameW, xWeek = i => xContract + contractW + i * wkW;
+  const xTotal = xWeek(weeks.length), xBase = xTotal + totalW, xDays = xBase + baseW;
+  const scope = ui.filter === 'all' ? '' : ` — ${roleLabel(ui.filter)}`;
+  const title = `Heures du mois — ${MONTHS[month]} ${year}${scope}`;
+  const bottom = doc.h - M - 36;
+  let y;
+
+  const pageHeader = () => {
+    y = pdfTitle(doc, title);
+    const hh = 30;
+    doc.rect(M, y, W, hh, C.head, C.border);
+    doc.text(M + 10, y + 18, 'Salarié', { size: 8.5, bold: true, color: C.muted });
+    const head = (x, w, a, b) => {
+      doc.line(x, y, x, y + hh, C.border);
+      doc.text(x + w / 2, y + 13, a, { size: 9, bold: true, align: 'center' });
+      if (b) doc.text(x + w / 2, y + 24, b, { size: 7.5, color: C.muted, align: 'center' });
+    };
+    head(xContract, contractW, 'Contrat', 'par sem.');
+    weeks.forEach((w, i) => {
+      const a = w.days[0], b = w.days[w.days.length - 1];
+      const range = w.days.length === 1 ? `${a.getDate()} ${MONTHS_SHORT[a.getMonth()]}` : `${a.getDate()}–${b.getDate()} ${MONTHS_SHORT[b.getMonth()]}`;
+      head(xWeek(i), wkW, `S${w.number}${w.full ? '' : '*'}`, range);
+    });
+    head(xTotal, totalW, 'Total', 'du mois');
+    head(xBase, baseW, 'Base', 'contrat');
+    head(xDays, daysW, 'Jours', '');
+    y += hh;
+  };
+  pageHeader();
+  if (!emps.length) doc.text(M + 10, y + 20, 'Aucun salarié.', { size: 9, color: C.muted });
+
+  const weekTotals = weeks.map(() => 0);
+  let monthTotal = 0, baseTotal = 0;
+  const rowH = 34;
+  for (const emp of emps) {
+    if (y + rowH > bottom) { doc.addPage(); pageHeader(); }
+    doc.rect(M, y, W, rowH, null, C.border);
+    doc.rect(M, y, 4, rowH, emp.color);
+    doc.text(M + 10, y + 15, emp.name, { size: 9.5, bold: true, maxWidth: nameW - 14 });
+    doc.text(M + 10, y + 26, roleLabel(emp.role), { size: 7.5, color: C.muted, maxWidth: nameW - 14 });
+    doc.line(xContract, y, xContract, y + rowH, C.border);
+    doc.text(xContract + contractW / 2, y + 20, emp.contract > 0 ? `${fmtNumber(emp.contract)} h` : '–', { size: 9, align: 'center' });
+
+    const weekTarget = Math.round(emp.contract * 60);
+    weeks.forEach((w, i) => {
+      const x = xWeek(i);
+      const minutes = rangeMinutes(emp.id, w.days);
+      weekTotals[i] += minutes;
+      if (w.full) {
+        const c = contractStatus(minutes, weekTarget);
+        const [bg, fg] = C[c];
+        doc.rect(x, y, wkW, rowH, bg, C.border);
+        const showDiff = c === 'under' || c === 'over';
+        doc.text(x + wkW / 2, y + (showDiff ? 16 : 20), fmtHours(minutes), { size: 9.5, bold: true, color: c === 'none' ? C.text : fg, align: 'center' });
+        if (showDiff) doc.text(x + wkW / 2, y + 27, fmtDiff(minutes - weekTarget), { size: 7, bold: true, color: fg, align: 'center' });
+      } else {
+        doc.line(x, y, x, y + rowH, C.border);
+        doc.text(x + wkW / 2, y + 20, fmtHours(minutes), { size: 9, color: C.muted, align: 'center' });
+      }
+    });
+    const total = rangeMinutes(emp.id, days);
+    const target = Math.round(emp.contract * 60 * days.length / 7);
+    monthTotal += total;
+    if (emp.contract > 0) baseTotal += target;
+    pdfTotalCell(doc, xTotal, y, totalW, rowH, total, target);
+    doc.line(xBase, y, xBase, y + rowH, C.border);
+    doc.text(xBase + baseW / 2, y + 20, emp.contract > 0 ? fmtHours(target) : '–', { size: 9, align: 'center' });
+    doc.line(xDays, y, xDays, y + rowH, C.border);
+    const c = countDays(emp.id, days);
+    const tags = [['conge', 'congé'], ['maladie', 'maladie'], ['absent', 'absent']].filter(([k]) => c[k]).map(([k, l]) => `${c[k]} j ${l}`).join(' · ');
+    doc.text(xDays + 8, y + (tags ? 15 : 20), `${c.travail} j travaillé${c.travail > 1 ? 's' : ''}`, { size: 8.5, bold: true });
+    if (tags) doc.text(xDays + 8, y + 26, tags, { size: 7, color: C.muted, maxWidth: daysW - 12 });
+    y += rowH;
+  }
+
+  if (emps.length) {
+    const fh = 20;
+    if (y + fh > bottom) { doc.addPage(); pageHeader(); }
+    doc.rect(M, y, W, fh, C.foot, C.border);
+    doc.text(M + 10, y + 13.5, 'Total', { size: 8.5, bold: true });
+    doc.line(xContract, y, xContract, y + fh, C.border);
+    weekTotals.forEach((t, i) => {
+      doc.line(xWeek(i), y, xWeek(i), y + fh, C.border);
+      doc.text(xWeek(i) + wkW / 2, y + 13.5, fmtHours(t), { size: 8.5, bold: true, align: 'center' });
+    });
+    [[xTotal, totalW, fmtHours(monthTotal)], [xBase, baseW, fmtHours(baseTotal)], [xDays, daysW, '']].forEach(([x, w, v]) => {
+      doc.line(x, y, x, y + fh, C.border);
+      if (v) doc.text(x + w / 2, y + 13.5, v, { size: 8.5, bold: true, align: 'center' });
+    });
+    y += fh;
+  }
+  pdfLegend(doc, y + 16);
+  doc.text(M, y + 30, '* Semaine partielle : seuls les jours de ce mois sont comptés (sans couleur). ' +
+    'Base contrat = contrat hebdomadaire × nombre de jours du mois ÷ 7.', { size: 7.5, color: C.muted, maxWidth: W });
+  pdfPageNumbers(doc);
+  return { doc, title, fileName: asciiFileName(`heures-${MONTHS[month]}-${year}.pdf`) };
+}
+
+/** Mois proposé pour le PDF : celui affiché (vue Mois) ou celui de la semaine affichée */
+function pdfMonth() {
+  return ui.view === 'month' ? { year: ui.year, month: ui.month } : { year: ui.anchor.getFullYear(), month: ui.anchor.getMonth() };
+}
+
+/** Crée et télécharge un PDF ('week' ou 'month') */
+function exportPdf(kind) {
+  let result;
+  try {
+    const { year, month } = pdfMonth();
+    result = kind === 'week' ? buildWeekPdf() : buildMonthPdf(year, month);
+    downloadFile(result.fileName, result.doc.output(result.title), 'application/pdf');
+  } catch (err) {
+    console.error('PDF impossible :', err);
+    askAlert('PDF impossible', 'Le PDF n’a pas pu être créé. Utilisez « Imprimer » puis choisissez « Enregistrer au format PDF ».');
+    return;
+  }
+  if ($('#dlg-export').open) $('#dlg-export').close();
+  toast(`PDF téléchargé : ${result.fileName}`);
 }
 
 /* =====================================================================
@@ -1895,6 +2345,18 @@ function openDayDialog(dateKey) {
   showDialog($('#dlg-day'));
 }
 
+/* ---------- Fenêtre « Exporter » ---------- */
+function openExportMenu() {
+  const monday = weekStart();
+  const { year, month } = pdfMonth();
+  const scope = ui.filter === 'all' ? '' : ` · ${roleLabel(ui.filter)} uniquement`;
+  $('#export-week-label').textContent = `Planning de la semaine ${isoWeekNumber(monday)} (PDF)`;
+  $('#export-week-sub').textContent = capitalize(fmtWeekRange(monday)) + scope;
+  $('#export-month-label').textContent = `Heures ${deMois(month)} ${year} (PDF)`;
+  $('#export-month-sub').textContent = 'Total par semaine et par mois, comparé au contrat' + scope;
+  showDialog($('#dlg-export'));
+}
+
 /* ---------- Fenêtres « Salariés » et formulaire salarié ---------- */
 function openEmployees() {
   renderEmployeeList();
@@ -2150,6 +2612,7 @@ function handleAction(action) {
     case 'add-employee': openEmployeeForm(null); break;
     case 'undo': hideToast(); undo(); break;
     case 'export': exportData(); break;
+    case 'export-menu': openExportMenu(); break;
     case 'import': $('#import-file').click(); break;
     case 'print': window.print(); break;
     case 'reset': resetAll(); break;
@@ -2278,6 +2741,11 @@ function bindEvents() {
     const ignored = editor.status === 'travail' && editor.draft.some(s => (s.start || s.end) && shiftMinutes(s) === null);
     if (ignored) toast('Un créneau incomplet ou invalide n’a pas été pris en compte.');
   });
+
+  /* --- Fenêtre « Exporter » --- */
+  $('#export-pdf-week').addEventListener('click', () => exportPdf('week'));
+  $('#export-pdf-month').addEventListener('click', () => exportPdf('month'));
+  $('#export-json').addEventListener('click', () => { $('#dlg-export').close(); exportData(); });
 
   /* --- Fenêtre « journée » --- */
   $('#day-copy-btn').addEventListener('click', copyDay);

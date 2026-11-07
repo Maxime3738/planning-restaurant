@@ -40,7 +40,7 @@ Pour publier une nouvelle version, ré-uploadez `index.html` dans le dépôt.
 
 Chaque modification est **enregistrée automatiquement** dans le navigateur : pas de bouton « Sauvegarder ». L’heure du dernier enregistrement s’affiche sous le titre.
 
-- **Exporter** : télécharge un fichier de sauvegarde, par exemple `planning-restaurant-2026-11-07.json`. Gardez-le en lieu sûr (clé USB, Google Drive, e-mail…).
+- **Exporter → Sauvegarde complète (.json)** : télécharge un fichier de sauvegarde, par exemple `planning-restaurant-2026-11-07.json`. Gardez-le en lieu sûr (clé USB, Google Drive, e-mail…).
 - **Importer** : choisissez un fichier exporté. L’application vous demande de confirmer avant de **remplacer** les données actuelles.
 - Un rappel discret apparaît si aucun export n’a été fait depuis plus de 7 jours.
 - Le bouton **Annuler** (ou Ctrl+Z) revient sur la dernière modification, tant que la page reste ouverte.
@@ -65,5 +65,6 @@ Exportez donc une sauvegarde régulièrement.
 - **Copier vers la semaine suivante** : duplique la semaine affichée.
 - **Vue Mois** : heures de chaque semaine et total du mois. « Base contrat » = contrat hebdomadaire × jours du mois ÷ 7.
 - **Couleurs** : vert = contrat respecté, orange = heures manquantes, rouge = dépassement. La tolérance se règle dans **Salariés → Réglages**.
-- **Imprimer / PDF** : imprime la vue affichée en A4 paysage. Choisissez « Enregistrer en PDF » comme imprimante pour obtenir un PDF.
+- **Exporter → PDF** : télécharge directement un PDF (A4 paysage) du planning de la semaine affichée ou des heures du mois, à imprimer, envoyer ou afficher. Si un poste est filtré, seul ce poste est exporté. Un PDF ne peut pas être réimporté : pour sauvegarder les données, utilisez la sauvegarde .json.
+- **Imprimer** : imprime la vue affichée en A4 paysage.
 - **Mode sombre** : bouton lune / soleil en haut à droite (mémorisé).
