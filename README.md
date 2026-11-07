@@ -1,5 +1,7 @@
 # Planning du restaurant
 
+**👉 Ouvrir l’application en ligne : https://maxime3738.github.io/planning-restaurant/**
+
 Application de planning pour les salariés du restaurant : créneaux par jour, total d’heures par semaine et par mois, comparaison avec le contrat. Tout tient dans un seul fichier : `index.html`.
 
 ## Ouvrir l’application sur l’ordinateur
